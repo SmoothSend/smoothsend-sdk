@@ -24,7 +24,7 @@ export class AvalancheAdapter implements IChainAdapter {
   }
 
   async getQuote(request: TransferRequest): Promise<TransferQuote> {
-    const chainName = this.config.chainId === 43113 ? 'fuji' : 'avalanche';
+    const chainName = this.config.chainId === 43113 ? 'avalanche-fuji' : 'avalanche';
     const response = await this.httpClient.post('/quote', {
       chainName,
       token: request.token,
@@ -51,7 +51,7 @@ export class AvalancheAdapter implements IChainAdapter {
 
   async prepareTransfer(request: TransferRequest, quote: TransferQuote): Promise<SignatureData> {
     // Get user nonce
-    const chainName = this.config.chainId === 43113 ? 'fuji' : 'avalanche';
+    const chainName = this.config.chainId === 43113 ? 'avalanche-fuji' : 'avalanche';
     const nonceResponse = await this.httpClient.get('/nonce', {
       params: {
         chainName,
@@ -180,7 +180,7 @@ export class AvalancheAdapter implements IChainAdapter {
   }
 
   async getNonce(address: string): Promise<string> {
-    const chainName = this.config.chainId === 43113 ? 'fuji' : 'avalanche';
+    const chainName = this.config.chainId === 43113 ? 'avalanche-fuji' : 'avalanche';
     const response = await this.httpClient.get('/nonce', {
       params: {
         chainName,
@@ -196,7 +196,7 @@ export class AvalancheAdapter implements IChainAdapter {
   }
 
   async getTransactionStatus(txHash: string): Promise<any> {
-    const chainName = this.config.chainId === 43113 ? 'fuji' : 'avalanche';
+    const chainName = this.config.chainId === 43113 ? 'avalanche-fuji' : 'avalanche';
     const response = await this.httpClient.get('/transfer-status', {
       params: {
         chainName,
