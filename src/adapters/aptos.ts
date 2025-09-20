@@ -1,3 +1,5 @@
+// TODO: Ensure @aptos-labs/ts-sdk is installed as dependency
+// npm install @aptos-labs/ts-sdk
 import { 
   Account, 
   Aptos, 
@@ -28,7 +30,7 @@ export class AptosAdapter implements IChainAdapter {
   private aptosClient: Aptos;
 
   constructor(public readonly config: ChainConfig) {
-    this.httpClient = new HttpClient(config.relayerUrl + '/api/v1/relayer');
+    this.httpClient = new HttpClient(config.relayerUrl);
     
     // Initialize Aptos client (testnet only)
     const aptosConfig = new AptosConfig({ 
@@ -38,30 +40,60 @@ export class AptosAdapter implements IChainAdapter {
   }
 
   async getQuote(request: TransferRequest): Promise<TransferQuote> {
-    const response = await this.httpClient.post('/gasless/quote', {
-      fromAddress: request.from,
-      toAddress: request.to,
-      amount: request.amount,
-      coinType: this.getCoinType(request.token)
-    });
+    try {
+      const response = await this.httpClient.post('/gasless/quote', {
+        fromAddress: request.from,
+        toAddress: request.to,
+        amount: request.amount,
+        coinType: this.getCoinType(request.token)
+      });
 
-    if (!response.success || !response.data) {
+      if (!response.success || !response.data) {
+        throw new SmoothSendError(
+          response.error || 'Failed to get quote',
+          'QUOTE_ERROR',
+          this.chain
+        );
+      }
+
+      const data = response.data;
+      
+      // Parse the actual relayer response format
+      const relayerFee = data.relayerFee || data.usdcFee || '0';
+      const amount = request.amount;
+      const total = (BigInt(amount) + BigInt(relayerFee)).toString();
+      
+      return {
+        amount,
+        relayerFee,
+        total,
+        feePercentage: this.calculateFeePercentage(amount, relayerFee),
+        estimatedGas: data.gasUnits || data.estimatedGas,
+        deadline: undefined,
+        nonce: undefined
+      };
+    } catch (error) {
+      if (error instanceof SmoothSendError) throw error;
       throw new SmoothSendError(
-        response.error || 'Failed to get quote',
+        `Quote request failed: ${error instanceof Error ? error.message : String(error)}`,
         'QUOTE_ERROR',
-        this.chain,
-        response.details
+        this.chain
       );
     }
+  }
 
-    const data = response.data;
-    return {
-      amount: data.transferAmount || request.amount,
-      relayerFee: data.relayerFeeUSDC || '0',
-      total: data.totalUSDCRequired || request.amount,
-      feePercentage: 0, // Aptos uses fixed USDC fees
-      estimatedGas: data.estimatedGasFee,
-    };
+  private calculateFeePercentage(amount: string, fee: string): number {
+    try {
+      const amountBN = BigInt(amount);
+      const feeBN = BigInt(fee);
+      if (amountBN === 0n) return 0;
+      
+      // Calculate fee percentage (fee / amount * 100)
+      const percentage = Number(feeBN * 10000n / amountBN) / 100; // Convert to percentage with 2 decimal precision
+      return percentage;
+    } catch (error) {
+      return 0;
+    }
   }
 
   async prepareTransfer(request: TransferRequest, quote: TransferQuote): Promise<SignatureData> {
@@ -86,29 +118,41 @@ export class AptosAdapter implements IChainAdapter {
   }
 
   async executeTransfer(signedData: SignedTransferData): Promise<TransferResult> {
-    const response = await this.httpClient.post('/gasless/submit', {
-      ...signedData.transferData,
-      signature: signedData.signature
-    });
+    try {
+      const payload = {
+        ...signedData.transferData,
+        signature: signedData.signature
+      };
 
-    if (!response.success || !response.data) {
+      const response = await this.httpClient.post('/gasless/submit', payload);
+
+      if (!response.success || !response.data) {
+        throw new SmoothSendError(
+          response.error || 'Transfer execution failed',
+          'EXECUTION_ERROR',
+          this.chain
+        );
+      }
+
+      const data = response.data;
+      const txHash = data.txnHash || data.hash || data.txHash;
+      
+      return {
+        success: true,
+        txHash,
+        blockNumber: data.version || data.blockNumber,
+        gasUsed: data.gasUsed,
+        transferId: data.transferId,
+        explorerUrl: `${this.config.explorerUrl}/txn/${txHash}`
+      };
+    } catch (error) {
+      if (error instanceof SmoothSendError) throw error;
       throw new SmoothSendError(
-        response.error || 'Transfer execution failed',
+        `Transfer execution failed: ${error instanceof Error ? error.message : String(error)}`,
         'EXECUTION_ERROR',
-        this.chain,
-        response.details
+        this.chain
       );
     }
-
-    const data = response.data;
-    return {
-      success: true,
-      txHash: data.txnHash || data.hash,
-      blockNumber: data.version,
-      gasUsed: data.gasUsed,
-      transferId: data.transferId,
-      explorerUrl: `${this.config.explorerUrl}/txn/${data.txnHash || data.hash}`
-    };
   }
 
   async getBalance(address: string, token?: string): Promise<TokenBalance[]> {
@@ -140,19 +184,28 @@ export class AptosAdapter implements IChainAdapter {
           accountAddress: address
         });
         
+        // Filter to only supported tokens from dynamic config
+        const dynamicConfig = this.config as any;
+        const supportedTokens = dynamicConfig.tokens || ['APT', 'USDC'];
+        const supportedCoinTypes = supportedTokens.map((t: string) => this.getCoinType(t));
+        
         for (const resource of resources) {
           if (resource.type.includes('coin::CoinStore')) {
             const coinType = this.extractCoinType(resource.type);
-            const coinData = resource.data as any;
             
-            if (coinData?.coin?.value) {
-              balances.push({
-                token: coinType,
-                balance: coinData.coin.value,
-                decimals: await this.getCoinDecimals(coinType),
-                symbol: this.getTokenSymbol(coinType),
-                name: this.getTokenSymbol(coinType)
-              });
+            // Only include if it's in our supported tokens list
+            if (supportedCoinTypes.includes(coinType)) {
+              const coinData = resource.data as any;
+              
+              if (coinData?.coin?.value) {
+                balances.push({
+                  token: coinType,
+                  balance: coinData.coin.value,
+                  decimals: await this.getCoinDecimals(coinType),
+                  symbol: this.getTokenSymbol(coinType),
+                  name: this.getTokenSymbol(coinType)
+                });
+              }
             }
           }
         }
@@ -209,30 +262,38 @@ export class AptosAdapter implements IChainAdapter {
   }
 
   async getTransactionStatus(txHash: string): Promise<any> {
-    const response = await this.httpClient.get(`/status/${txHash}`);
+    try {
+      const response = await this.httpClient.get(`/status/${txHash}`);
 
-    if (!response.success) {
-      // Fallback to direct Aptos client
-      try {
-        const txn = await this.aptosClient.getTransactionByHash({ transactionHash: txHash });
-        const userTxn = txn as any; // Type assertion for accessing properties
-        return {
-          hash: txHash,
-          success: userTxn.success || true,
-          version: userTxn.version,
-          gasUsed: userTxn.gas_used
-        };
-      } catch (error) {
-        throw new SmoothSendError(
-          'Failed to get transaction status',
-          'STATUS_ERROR',
-          this.chain,
-          error
-        );
+      if (!response.success) {
+        // Fallback to direct Aptos client
+        try {
+          const txn = await this.aptosClient.getTransactionByHash({ transactionHash: txHash });
+          const userTxn = txn as any;
+          return {
+            hash: txHash,
+            success: userTxn.success || true,
+            version: userTxn.version,
+            gasUsed: userTxn.gas_used
+          };
+        } catch (aptosError) {
+          throw new SmoothSendError(
+            'Failed to get transaction status from both relayer and Aptos node',
+            'STATUS_ERROR',
+            this.chain
+          );
+        }
       }
-    }
 
-    return response.data;
+      return response.data;
+    } catch (error) {
+      if (error instanceof SmoothSendError) throw error;
+      throw new SmoothSendError(
+        `Status query failed: ${error instanceof Error ? error.message : String(error)}`,
+        'STATUS_ERROR',
+        this.chain
+      );
+    }
   }
 
   validateAddress(address: string): boolean {
@@ -291,22 +352,51 @@ export class AptosAdapter implements IChainAdapter {
     return 8;
   }
 
+  // Batch transfer fallback (executes transfers sequentially since Aptos relayer doesn't support batch)
+  async executeBatchTransfer(signedTransfers: SignedTransferData[]): Promise<TransferResult[]> {
+    const results: TransferResult[] = [];
+    
+    for (const signedTransfer of signedTransfers) {
+      try {
+        const result = await this.executeTransfer(signedTransfer);
+        results.push(result);
+      } catch (error) {
+        // For batch operations, we continue with other transfers even if one fails
+        // But we mark this transfer as failed
+        results.push({
+          success: false,
+          txHash: '',
+          error: error instanceof Error ? error.message : String(error)
+        } as TransferResult & { error: string });
+      }
+    }
+
+    return results;
+  }
+
   // Helper to sign Aptos transactions
   async signTransaction(
-    privateKey: Ed25519PrivateKey,
-    transaction: any
+    signer: any,
+    transactionData: any
   ): Promise<string> {
     try {
-      const account = Account.fromPrivateKey({ privateKey });
-      // For now, return a mock signature since actual signing would require
-      // a properly constructed transaction object
-      return '0xsigned_transaction_hash';
-    } catch (error) {
+      // This would typically be handled by the wallet
+      // For SDK purposes, we expect the signature to be provided by the calling application
+      if (typeof signer.signTransaction === 'function') {
+        return await signer.signTransaction(transactionData);
+      }
+      
       throw new SmoothSendError(
-        'Failed to sign Aptos transaction',
+        'Signer must implement signTransaction method',
         'SIGNATURE_ERROR',
-        this.chain,
-        error
+        this.chain
+      );
+    } catch (error) {
+      if (error instanceof SmoothSendError) throw error;
+      throw new SmoothSendError(
+        `Transaction signing failed: ${error instanceof Error ? error.message : String(error)}`,
+        'SIGNATURE_ERROR',
+        this.chain
       );
     }
   }

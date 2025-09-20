@@ -1,11 +1,12 @@
 import { ChainConfig, SupportedChain } from '../types';
 
+// Minimal static configs - most data will be fetched dynamically from relayers
 export const CHAIN_CONFIGS: Record<SupportedChain, ChainConfig> = {
   avalanche: {
-    name: 'Avalanche Fuji',
+    name: 'Avalanche Fuji Testnet',
     chainId: 43113,
     rpcUrl: 'https://api.avax-test.network/ext/bc/C/rpc',
-    relayerUrl: 'https://smoothsendevm.onrender.com/',
+    relayerUrl: 'https://smoothsendevm.onrender.com',
     explorerUrl: 'https://testnet.snowtrace.io',
     nativeCurrency: {
       name: 'Avalanche',
@@ -17,7 +18,7 @@ export const CHAIN_CONFIGS: Record<SupportedChain, ChainConfig> = {
     name: 'Aptos Testnet',
     chainId: '2',
     rpcUrl: 'https://fullnode.testnet.aptoslabs.com/v1',
-    relayerUrl: 'https://app.smoothsend.xyz',
+    relayerUrl: 'https://app.smoothsend.xyz/api/v1/relayer',
     explorerUrl: 'https://explorer.aptoslabs.com/?network=testnet',
     nativeCurrency: {
       name: 'Aptos',
@@ -35,7 +36,8 @@ export function getAllChainConfigs(): Record<SupportedChain, ChainConfig> {
   return CHAIN_CONFIGS;
 }
 
-// Token utilities
+// These will be fetched dynamically from relayers
+// Keep minimal fallbacks for offline scenarios
 export const TOKEN_DECIMALS: Record<string, number> = {
   'USDC': 6,
   'USDT': 6,
@@ -43,16 +45,7 @@ export const TOKEN_DECIMALS: Record<string, number> = {
   'AVAX': 18
 };
 
-export const SUPPORTED_TOKENS_BY_CHAIN: Record<SupportedChain, string[]> = {
-  avalanche: ['USDC', 'USDT', 'AVAX'],
-  aptos: ['APT', 'USDC']
-};
-
 export function getTokenDecimals(token: string): number {
   return TOKEN_DECIMALS[token] || 18;
-}
-
-export function getSupportedTokens(chain: SupportedChain): string[] {
-  return SUPPORTED_TOKENS_BY_CHAIN[chain] || [];
 }
 

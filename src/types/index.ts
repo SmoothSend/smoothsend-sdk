@@ -130,10 +130,11 @@ export interface ApiResponse<T = any> {
 
 // SDK Configuration
 export interface SmoothSendConfig {
-  apiKey?: string;
   timeout?: number;
   retries?: number;
   customChainConfigs?: Partial<Record<SupportedChain, Partial<ChainConfig>>>;
+  useDynamicConfig?: boolean; // Enable fetching config from relayers (default: true)
+  configCacheTtl?: number; // Cache TTL in milliseconds (default: 5 minutes)
 }
 
 // Events
@@ -155,6 +156,9 @@ export interface IChainAdapter {
   getQuote(request: TransferRequest): Promise<TransferQuote>;
   prepareTransfer(request: TransferRequest, quote: TransferQuote): Promise<SignatureData>;
   executeTransfer(signedData: SignedTransferData): Promise<TransferResult>;
+  
+  // Batch transfer support (optional for chains that don't support it natively)
+  executeBatchTransfer?(signedTransfers: SignedTransferData[]): Promise<TransferResult[]>;
   
   // Utility methods
   getBalance(address: string, token?: string): Promise<TokenBalance[]>;
