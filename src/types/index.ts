@@ -1,5 +1,5 @@
-// Core SDK Types
-export type SupportedChain = 'avalanche' | 'aptos';
+// Core SDK Types - Multi-chain architecture (currently Avalanche only)
+export type SupportedChain = 'avalanche';
 
 export interface ChainConfig {
   name: string;
@@ -67,15 +67,7 @@ export interface AvalancheTransferData {
   };
 }
 
-export interface AptosTransferData {
-  fromAddress: string;
-  toAddress: string;
-  amount: string;
-  coinType: string;
-  maxGasAmount?: string;
-  gasUnitPrice?: string;
-  expirationTimestamp?: string;
-}
+// Removed AptosTransferData - will be re-added when Aptos relayer is redesigned
 
 // Signature Types
 export interface SignatureData {
@@ -88,7 +80,7 @@ export interface SignatureData {
 export interface SignedTransferData {
   transferData: any;
   signature: string;
-  signatureType: 'EIP712' | 'APTOS';
+  signatureType: 'EIP712'; // Will support more types when additional chains are added
 }
 
 // Balance and Token Types

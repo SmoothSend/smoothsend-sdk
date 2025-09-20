@@ -10,7 +10,8 @@ import {
   TransferResult,
   TokenBalance,
   TokenInfo,
-  SmoothSendError
+  SmoothSendError,
+  AvalancheTransferData
 } from '../types';
 import { HttpClient } from '../utils/http';
 
@@ -27,7 +28,7 @@ export class AvalancheAdapter implements IChainAdapter {
     try {
       const response = await this.httpClient.post('/quote', {
         chainName: this.chainName,
-        tokenSymbol: request.token,
+        token: request.token, // Quote endpoint expects 'token' field
         amount: request.amount
       });
 
@@ -42,9 +43,12 @@ export class AvalancheAdapter implements IChainAdapter {
       const data = response.data;
       return {
         amount: data.amount,
-        relayerFee: data.fee || data.relayerFee,
+        relayerFee: data.relayerFee, // Response uses 'relayerFee' field
         total: data.total,
-        feePercentage: data.feePercentage || 0
+        feePercentage: data.feePercentage || 0,
+        estimatedGas: undefined, // Not provided by this relayer
+        deadline: undefined,
+        nonce: undefined
       };
     } catch (error) {
       if (error instanceof SmoothSendError) throw error;
@@ -82,7 +86,7 @@ export class AvalancheAdapter implements IChainAdapter {
         chainName: this.chainName,
         from: request.from,
         to: request.to,
-        tokenSymbol: request.token,
+        tokenSymbol: request.token, // Relayer expects tokenSymbol for prepare-signature
         amount: request.amount,
         relayerFee: quote.relayerFee,
         nonce,
@@ -115,10 +119,19 @@ export class AvalancheAdapter implements IChainAdapter {
 
   async executeTransfer(signedData: SignedTransferData): Promise<TransferResult> {
     try {
-      // Include signature in the request payload
+      // Structure payload according to relayer API specification
+      const transferData = signedData.transferData as AvalancheTransferData;
       const payload = {
-        ...signedData.transferData,
-        signature: signedData.signature
+        chainName: transferData.chainName,
+        from: transferData.from,
+        to: transferData.to,
+        tokenSymbol: transferData.tokenSymbol,
+        amount: transferData.amount,
+        relayerFee: transferData.relayerFee,
+        nonce: transferData.nonce,
+        deadline: transferData.deadline,
+        signature: signedData.signature,
+        ...(transferData.permitData && { permitData: transferData.permitData })
       };
 
       const response = await this.httpClient.post('/relay-transfer', payload);
@@ -140,7 +153,7 @@ export class AvalancheAdapter implements IChainAdapter {
         blockNumber: data.blockNumber,
         gasUsed: data.gasUsed,
         transferId: data.transferId || data.transactionId,
-        explorerUrl: `${this.config.explorerUrl}/tx/${txHash}`
+        explorerUrl: data.explorerUrl || `${this.config.explorerUrl}/tx/${txHash}`
       };
     } catch (error) {
       if (error instanceof SmoothSendError) throw error;
@@ -187,20 +200,39 @@ export class AvalancheAdapter implements IChainAdapter {
   }
 
   async getTokenInfo(token: string): Promise<TokenInfo> {
-    const chainsResponse = await this.httpClient.get('/chains');
-    
-    if (!chainsResponse.success) {
-      throw new SmoothSendError('Failed to get token info', 'TOKEN_INFO_ERROR', this.chain);
-    }
+    try {
+      const chainsResponse = await this.httpClient.get('/chains');
+      
+      if (!chainsResponse.success) {
+        throw new SmoothSendError('Failed to get token info', 'TOKEN_INFO_ERROR', this.chain);
+      }
 
-    // Find token in supported tokens list
-    // This is a simplified implementation - in practice you'd query token contracts
-    return {
-      address: token,
-      symbol: token,
-      name: token,
-      decimals: 18 // Default, would need to query actual contract
-    };
+      // Get token decimals based on known tokens
+      let decimals = 18; // Default
+      let tokenAddress = token;
+      
+      if (token.toLowerCase() === 'usdc') {
+        decimals = 6;
+        tokenAddress = '0x5425890298aed601595a70AB815c96711a31Bc65'; // Fuji USDC
+      } else if (token.toLowerCase() === 'avax') {
+        decimals = 18;
+        tokenAddress = '0x0000000000000000000000000000000000000000'; // Native AVAX
+      }
+
+      return {
+        address: tokenAddress,
+        symbol: token.toUpperCase(),
+        name: token.toUpperCase(),
+        decimals
+      };
+    } catch (error) {
+      if (error instanceof SmoothSendError) throw error;
+      throw new SmoothSendError(
+        `Token info query failed: ${error instanceof Error ? error.message : String(error)}`,
+        'TOKEN_INFO_ERROR',
+        this.chain
+      );
+    }
   }
 
   async getNonce(address: string): Promise<string> {
@@ -298,10 +330,21 @@ export class AvalancheAdapter implements IChainAdapter {
   // Batch transfer support (Avalanche-specific feature)
   async executeBatchTransfer(signedTransfers: SignedTransferData[]): Promise<TransferResult[]> {
     try {
-      const transfersPayload = signedTransfers.map(signedData => ({
-        ...signedData.transferData,
-        signature: signedData.signature
-      }));
+      const transfersPayload = signedTransfers.map(signedData => {
+        const transferData = signedData.transferData as AvalancheTransferData;
+        return {
+          chainName: transferData.chainName,
+          from: transferData.from,
+          to: transferData.to,
+          tokenSymbol: transferData.tokenSymbol,
+          amount: transferData.amount,
+          relayerFee: transferData.relayerFee,
+          nonce: transferData.nonce,
+          deadline: transferData.deadline,
+          signature: signedData.signature,
+          ...(transferData.permitData && { permitData: transferData.permitData })
+        };
+      });
 
       const response = await this.httpClient.post('/relay-batch-transfer', {
         chainName: this.chainName,
@@ -320,7 +363,8 @@ export class AvalancheAdapter implements IChainAdapter {
       const results: TransferResult[] = [];
 
       // Handle both single result and array of results
-      const transferResults = Array.isArray(data.results) ? data.results : [data];
+      const transferResults = Array.isArray(data.results) ? data.results : 
+                             Array.isArray(data) ? data : [data];
       
       for (const result of transferResults) {
         const txHash = result.txHash || result.transactionHash;
@@ -330,7 +374,7 @@ export class AvalancheAdapter implements IChainAdapter {
           blockNumber: result.blockNumber,
           gasUsed: result.gasUsed,
           transferId: result.transferId || result.transactionId,
-          explorerUrl: `${this.config.explorerUrl}/tx/${txHash}`
+          explorerUrl: result.explorerUrl || `${this.config.explorerUrl}/tx/${txHash}`
         });
       }
 

@@ -7,16 +7,13 @@ import {
   TransferEvent 
 } from '../../src/types';
 import { AvalancheAdapter } from '../../src/adapters/avalanche';
-import { AptosAdapter } from '../../src/adapters/aptos';
 
 // Mock the adapters
 jest.mock('../../src/adapters/avalanche');
-jest.mock('../../src/adapters/aptos');
 
 describe('SmoothSendSDK', () => {
   let sdk: SmoothSendSDK;
   let mockAvalancheAdapter: jest.Mocked<AvalancheAdapter>;
-  let mockAptosAdapter: jest.Mocked<AptosAdapter>;
 
   beforeEach(() => {
     // Clear all mocks
@@ -30,7 +27,6 @@ describe('SmoothSendSDK', () => {
 
     // Get mocked adapters
     mockAvalancheAdapter = (AvalancheAdapter as jest.MockedClass<typeof AvalancheAdapter>).mock.instances[0] as jest.Mocked<AvalancheAdapter>;
-    mockAptosAdapter = (AptosAdapter as jest.MockedClass<typeof AptosAdapter>).mock.instances[0] as jest.Mocked<AptosAdapter>;
   });
 
   describe('Initialization', () => {
@@ -54,26 +50,24 @@ describe('SmoothSendSDK', () => {
 
     it('should initialize adapters for supported chains', () => {
       expect(AvalancheAdapter).toHaveBeenCalledTimes(1);
-      expect(AptosAdapter).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('getSupportedChains', () => {
     it('should return supported chains', () => {
       const chains = sdk.getSupportedChains();
-      expect(chains).toEqual(['avalanche', 'aptos']);
+      expect(chains).toEqual(['avalanche']);
     });
 
     it('should return supported chains from static method', () => {
       const chains = SmoothSendSDK.getSupportedChains();
-      expect(chains).toEqual(['avalanche', 'aptos']);
+      expect(chains).toEqual(['avalanche']);
     });
   });
 
   describe('isChainSupported', () => {
     it('should return true for supported chains', () => {
       expect(sdk.isChainSupported('avalanche')).toBe(true);
-      expect(sdk.isChainSupported('aptos')).toBe(true);
     });
 
     it('should return false for unsupported chains', () => {
@@ -159,14 +153,7 @@ describe('SmoothSendSDK', () => {
       expect(mockAvalancheAdapter.validateAddress).toHaveBeenCalledWith('0x742d35cc6634c0532925a3b8d2d2d2d2d2d2d2d2');
     });
 
-    it('should validate aptos address', () => {
-      mockAptosAdapter.validateAddress = jest.fn().mockReturnValue(true);
-
-      const result = sdk.validateAddress('aptos', '0x742d35cc6634c0532925a3b8d2d2d2d2d2d2d2d2');
-
-      expect(result).toBe(true);
-      expect(mockAptosAdapter.validateAddress).toHaveBeenCalledWith('0x742d35cc6634c0532925a3b8d2d2d2d2d2d2d2d2');
-    });
+    // Aptos address validation test removed - will be re-added when Aptos is supported
 
     it('should return false for invalid address', () => {
       mockAvalancheAdapter.validateAddress = jest.fn().mockReturnValue(false);
@@ -276,21 +263,7 @@ describe('SmoothSendSDK', () => {
       expect(mockAvalancheAdapter.getBalance).toHaveBeenCalledWith('0x742d35cc6634c0532925a3b8d2d2d2d2d2d2d2d2', undefined);
     });
 
-    it('should get specific token balance', async () => {
-      const mockBalance = [{
-        token: 'USDC',
-        balance: '1000000',
-        decimals: 6,
-        symbol: 'USDC'
-      }];
-
-      mockAptosAdapter.getBalance = jest.fn().mockResolvedValue(mockBalance);
-
-      const result = await sdk.getBalance('aptos', '0x742d35cc6634c0532925a3b8d2d2d2d2d2d2d2d2', 'USDC');
-
-      expect(result).toEqual(mockBalance);
-      expect(mockAptosAdapter.getBalance).toHaveBeenCalledWith('0x742d35cc6634c0532925a3b8d2d2d2d2d2d2d2d2', 'USDC');
-    });
+    // Aptos balance test removed - will be re-added when Aptos is supported
   });
 
   describe('Static Methods', () => {
@@ -309,7 +282,7 @@ describe('SmoothSendSDK', () => {
     it('should get all chain configs', () => {
       const configs = SmoothSendSDK.getAllChainConfigs();
       expect(configs).toHaveProperty('avalanche');
-      expect(configs).toHaveProperty('aptos');
+      // Additional chain properties will be tested as they are added
     });
   });
 });

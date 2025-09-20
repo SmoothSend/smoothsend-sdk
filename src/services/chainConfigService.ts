@@ -107,10 +107,10 @@ export class ChainConfigService {
   async getAllChainConfigs(fallbackConfigs?: Record<SupportedChain, ChainConfig>): Promise<Record<string, DynamicChainConfig>> {
     const configs: Record<string, DynamicChainConfig> = {};
     
-    // Try to fetch from each known relayer - prioritize Avalanche relayer as requested
+    // Currently only Avalanche relayer - architecture ready for additional relayers
     const relayerUrls = [
-      'https://smoothsendevm.onrender.com',      // Avalanche relayer (priority)
-      'https://app.smoothsend.xyz/api/v1/relayer' // Aptos relayer
+      'https://smoothsendevm.onrender.com'      // Avalanche relayer
+      // Additional relayer URLs will be added here as they become available
     ];
 
     for (const relayerUrl of relayerUrls) {
@@ -119,7 +119,7 @@ export class ChainConfigService {
         for (const config of chainConfigs) {
           const chainKey = this.getChainKey(config);
           if (chainKey) {
-            // Don't override existing configs (first relayer wins - Avalanche priority)
+            // Don't override existing configs (first relayer wins)
             if (!configs[chainKey]) {
               configs[chainKey] = config;
             }
@@ -179,14 +179,12 @@ export class ChainConfigService {
       return fallbackConfig.relayerUrl;
     }
 
-    // Default relayer URLs - prioritize Avalanche as requested
+    // Default relayer URLs - currently only Avalanche
     switch (chain) {
       case 'avalanche':
         return 'https://smoothsendevm.onrender.com';
-      case 'aptos':
-        return 'https://app.smoothsend.xyz/api/v1/relayer';
       default:
-        // For unknown chains, try Avalanche relayer first (EVM-compatible)
+        // For unknown chains, try Avalanche relayer (EVM-compatible chains may work)
         console.warn(`Unknown chain ${chain}, defaulting to Avalanche relayer`);
         return 'https://smoothsendevm.onrender.com';
     }
@@ -198,8 +196,6 @@ export class ChainConfigService {
     switch (chain) {
       case 'avalanche':
         return chainName.includes('avalanche') || chainName.includes('fuji') || chainName.includes('avax');
-      case 'aptos':
-        return chainName.includes('aptos');
       default:
         return false;
     }
@@ -215,9 +211,8 @@ export class ChainConfigService {
     if (name.includes('avalanche') || name.includes('fuji') || name.includes('avax')) {
       return 'avalanche';
     }
-    if (name.includes('aptos')) {
-      return 'aptos';
-    }
+    
+    // Additional chain matching logic will be added here as new chains are supported
     
     return null;
   }
@@ -228,9 +223,8 @@ export class ChainConfigService {
     if (name.includes('avalanche') || name.includes('fuji')) {
       return 'https://api.avax-test.network/ext/bc/C/rpc';
     }
-    if (name.includes('aptos')) {
-      return 'https://fullnode.testnet.aptoslabs.com/v1';
-    }
+    
+    // Additional RPC URLs will be added here as new chains are supported
     
     return '';
   }
@@ -245,13 +239,8 @@ export class ChainConfigService {
         decimals: 18
       };
     }
-    if (name.includes('aptos')) {
-      return {
-        name: 'Aptos',
-        symbol: 'APT',
-        decimals: 8
-      };
-    }
+    
+    // Additional native currency mappings will be added here as new chains are supported
     
     return {
       name: 'Unknown',
@@ -264,8 +253,6 @@ export class ChainConfigService {
     switch (chain) {
       case 'avalanche':
         return ['USDC'];
-      case 'aptos':
-        return ['APT', 'USDC'];
       default:
         return [];
     }

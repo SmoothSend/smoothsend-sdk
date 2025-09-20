@@ -18,7 +18,7 @@ import {
 import { getChainConfig, getAllChainConfigs } from '../config/chains';
 import { chainConfigService, DynamicChainConfig } from '../services/chainConfigService';
 import { AvalancheAdapter } from '../adapters/avalanche';
-import { AptosAdapter } from '../adapters/aptos';
+// Additional adapters will be imported here as they are added
 
 export class SmoothSendSDK {
   private adapters: Map<SupportedChain, IChainAdapter> = new Map();
@@ -110,12 +110,7 @@ export class SmoothSendSDK {
     };
     this.createAdapter('avalanche', avalancheConfig);
 
-    // Initialize Aptos adapter  
-    const aptosConfig = {
-      ...chainConfigs.aptos,
-      ...this.config.customChainConfigs?.aptos
-    };
-    this.createAdapter('aptos', aptosConfig);
+    // Additional adapters will be initialized here as they are added
   }
 
   private createAdapter(chain: SupportedChain, config: ChainConfig | DynamicChainConfig): void {
@@ -123,16 +118,13 @@ export class SmoothSendSDK {
       case 'avalanche':
         this.adapters.set(chain, new AvalancheAdapter(config));
         break;
-      case 'aptos':
-        this.adapters.set(chain, new AptosAdapter(config));
-        break;
       default:
         console.warn(`Unknown chain type: ${chain}`);
     }
   }
 
   private ensureCoreChains(staticConfigs: Record<SupportedChain, ChainConfig>): void {
-    const coreChains: SupportedChain[] = ['avalanche', 'aptos'];
+    const coreChains: SupportedChain[] = ['avalanche'];
     
     for (const chain of coreChains) {
       if (!this.adapters.has(chain)) {
@@ -288,17 +280,15 @@ export class SmoothSendSDK {
       );
       
       transferData = {
-        ...signatureData.message,
-        signature
-      };
-    } else if (request.chain === 'aptos') {
-      // Aptos transaction signing
-      const adapter = this.getAdapter(request.chain) as AptosAdapter;
-      signature = await adapter.signTransaction(signer, signatureData.message);
-      
-      transferData = {
-        ...signatureData.message,
-        signature
+        chainName: 'avalanche-fuji',
+        from: request.from,
+        to: request.to,
+        tokenSymbol: request.token,
+        amount: request.amount,
+        relayerFee: quote.relayerFee,
+        nonce: signatureData.message.nonce,
+        deadline: signatureData.message.deadline,
+        // Note: permitData would be added here if implementing ERC-2612 permit signatures
       };
     } else {
       throw new SmoothSendError(
@@ -318,7 +308,7 @@ export class SmoothSendSDK {
     const signedTransferData: SignedTransferData = {
       transferData,
       signature,
-      signatureType: request.chain === 'avalanche' ? 'EIP712' : 'APTOS'
+      signatureType: 'EIP712' // Currently only EIP712 supported
     };
 
     return await this.executeTransfer(signedTransferData, request.chain);
@@ -358,17 +348,15 @@ export class SmoothSendSDK {
           );
           
           transferData = {
-            ...signatureData.message,
-            signature
-          };
-        } else if (transfer.chain === 'aptos') {
-          // Aptos transaction signing
-          const aptosAdapter = adapter as AptosAdapter;
-          signature = await aptosAdapter.signTransaction(signer, signatureData.message);
-          
-          transferData = {
-            ...signatureData.message,
-            signature
+            chainName: 'avalanche-fuji',
+            from: transfer.from,
+            to: transfer.to,
+            tokenSymbol: transfer.token,
+            amount: transfer.amount,
+            relayerFee: quote.relayerFee,
+            nonce: signatureData.message.nonce,
+            deadline: signatureData.message.deadline,
+            // Note: permitData would be added here if implementing ERC-2612 permit signatures
           };
         } else {
           throw new SmoothSendError(
@@ -380,7 +368,7 @@ export class SmoothSendSDK {
         signedTransfers.push({
           transferData,
           signature,
-          signatureType: transfer.chain === 'avalanche' ? 'EIP712' : 'APTOS'
+          signatureType: 'EIP712' // Currently only EIP712 supported
         });
       }
 
@@ -495,7 +483,7 @@ export class SmoothSendSDK {
 
   // Static utility methods (for static configs only)
   public static getSupportedChains(): SupportedChain[] {
-    return ['avalanche', 'aptos'];
+    return ['avalanche']; // Multi-chain architecture maintained for future expansion
   }
 
   public static getChainConfig(chain: SupportedChain): ChainConfig {

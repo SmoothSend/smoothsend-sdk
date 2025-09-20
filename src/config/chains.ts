@@ -1,6 +1,7 @@
 import { ChainConfig, SupportedChain } from '../types';
 
 // Minimal static configs - most data will be fetched dynamically from relayers
+// Multi-chain architecture maintained for future expansion
 export const CHAIN_CONFIGS: Record<SupportedChain, ChainConfig> = {
   avalanche: {
     name: 'Avalanche Fuji Testnet',
@@ -13,19 +14,8 @@ export const CHAIN_CONFIGS: Record<SupportedChain, ChainConfig> = {
       symbol: 'AVAX',
       decimals: 18
     }
-  },
-  aptos: {
-    name: 'Aptos Testnet',
-    chainId: '2',
-    rpcUrl: 'https://fullnode.testnet.aptoslabs.com/v1',
-    relayerUrl: 'https://app.smoothsend.xyz/api/v1/relayer',
-    explorerUrl: 'https://explorer.aptoslabs.com/?network=testnet',
-    nativeCurrency: {
-      name: 'Aptos',
-      symbol: 'APT',
-      decimals: 8
-    }
   }
+  // Additional chains will be added here as relayers become available
 };
 
 export function getChainConfig(chain: SupportedChain): ChainConfig {
@@ -41,8 +31,8 @@ export function getAllChainConfigs(): Record<SupportedChain, ChainConfig> {
 export const TOKEN_DECIMALS: Record<string, number> = {
   'USDC': 6,
   'USDT': 6,
-  'APT': 8,
   'AVAX': 18
+  // Additional token decimals will be added as new chains are supported
 };
 
 export function getTokenDecimals(token: string): number {

@@ -3,7 +3,7 @@ export { SmoothSendSDK } from './core/SmoothSendSDK';
 
 // Chain adapters
 export { AvalancheAdapter } from './adapters/avalanche';
-export { AptosAdapter } from './adapters/aptos';
+// Additional adapters will be exported here as they are added
 
 // Types
 export * from './types';
