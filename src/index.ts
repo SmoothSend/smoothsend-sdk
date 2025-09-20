@@ -18,5 +18,5 @@ export { HttpClient } from './utils/http';
 export const VERSION = '1.0.0';
 
 // Default export
-export default SmoothSendSDK;
+export { SmoothSendSDK as default } from './core/SmoothSendSDK';
 
