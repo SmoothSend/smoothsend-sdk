@@ -1,6 +1,6 @@
 # SmoothSend SDK
 
-A powerful multi-chain SDK for seamless gasless transaction integration in your dApps. Support for Avalanche and Aptos blockchains with unified developer experience.
+A powerful multi-chain SDK for seamless gasless transaction integration in your dApps. Currently supporting Avalanche with a unified developer experience and dynamic configuration system.
 
 [![npm version](https://badge.fury.io/js/@smoothsend/sdk.svg)](https://www.npmjs.com/package/@smoothsend/sdk)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
@@ -8,13 +8,15 @@ A powerful multi-chain SDK for seamless gasless transaction integration in your 
 
 ## 🚀 Features
 
-- **Multi-Chain Support**: Seamlessly work with Avalanche and Aptos
+- **Multi-Chain Ready**: Currently supporting Avalanche, with architecture ready for additional chains
 - **Gasless Transactions**: Users pay fees in tokens, not native gas
+- **Dynamic Configuration**: Chain configurations fetched dynamically from relayers
 - **Type-Safe**: Full TypeScript support with comprehensive type definitions
 - **Event System**: Real-time transaction status updates
-- **Unified API**: Same interface across all supported chains
+- **Unified API**: Consistent interface across all supported chains
 - **Batch Transfers**: Execute multiple transfers in a single transaction (Avalanche)
 - **Wallet Integration**: Easy integration with popular wallets
+- **Caching**: Intelligent caching of chain configurations for optimal performance
 
 ## 📦 Installation
 
@@ -55,8 +57,7 @@ try {
 
 | Chain | Network | Status | Features |
 |-------|---------|--------|----------|
-| Avalanche | Fuji | ✅ Active | EIP-712 signatures, Batch transfers |
-| Aptos | Testnet | ✅ Active | Native signatures, USDC fees |
+| Avalanche | Fuji Testnet | ✅ Active | EIP-712 signatures, Batch transfers, Dynamic config |
 
 ## 📚 API Reference
 
@@ -105,6 +106,27 @@ const batchRequest = {
 const results = await smoothSend.batchTransfer(batchRequest, signer);
 ```
 
+### Configuration Methods
+
+#### `getChainConfig(chain: SupportedChain): ChainConfig`
+
+Get static chain configuration.
+
+```typescript
+const config = smoothSend.getChainConfig('avalanche');
+console.log('Chain ID:', config.chainId);
+console.log('Relayer URL:', config.relayerUrl);
+```
+
+#### `getSupportedChains(): SupportedChain[]`
+
+Get list of supported chains.
+
+```typescript
+const chains = smoothSend.getSupportedChains();
+console.log('Supported chains:', chains); // ['avalanche']
+```
+
 ### Utility Methods
 
 #### `getBalance(chain: SupportedChain, address: string, token?: string): Promise<TokenBalance[]>`
@@ -122,6 +144,43 @@ Validate an address format for a specific chain.
 
 ```typescript
 const isValid = smoothSend.validateAddress('avalanche', '0x742d35...');
+```
+
+### Configuration Utilities
+
+#### `getChainConfig(chain: SupportedChain): ChainConfig`
+
+Get static chain configuration from the SDK.
+
+```typescript
+import { getChainConfig, getAllChainConfigs } from '@smoothsend/sdk';
+
+const avalancheConfig = getChainConfig('avalanche');
+const allConfigs = getAllChainConfigs();
+```
+
+#### `getTokenDecimals(token: string): number`
+
+Get token decimals for formatting.
+
+```typescript
+import { getTokenDecimals } from '@smoothsend/sdk';
+
+const usdcDecimals = getTokenDecimals('USDC'); // 6
+const avaxDecimals = getTokenDecimals('AVAX'); // 18
+```
+
+### Dynamic Configuration Service
+
+#### `chainConfigService.fetchChainConfig(relayerUrl: string): Promise<DynamicChainConfig[]>`
+
+Fetch dynamic chain configurations from relayers.
+
+```typescript
+import { chainConfigService } from '@smoothsend/sdk';
+
+const dynamicConfigs = await chainConfigService.fetchChainConfig('https://smoothsendevm.onrender.com');
+console.log('Available chains:', dynamicConfigs.map(c => c.name));
 ```
 
 ### Event Handling
@@ -156,10 +215,18 @@ smoothSend.addEventListener((event) => {
 
 ```typescript
 import { ethers } from 'ethers';
+import { SmoothSendSDK, getChainConfig } from '@smoothsend/sdk';
+
+// Initialize SDK
+const smoothSend = new SmoothSendSDK();
 
 // Connect to wallet
 const provider = new ethers.BrowserProvider(window.ethereum);
 const signer = await provider.getSigner();
+
+// Get chain configuration
+const chainConfig = getChainConfig('avalanche');
+console.log('Using relayer:', chainConfig.relayerUrl);
 
 // Transfer USDC on Avalanche
 const result = await smoothSend.transfer({
@@ -169,53 +236,51 @@ const result = await smoothSend.transfer({
   amount: ethers.parseUnits('10', 6).toString(), // 10 USDC
   chain: 'avalanche'
 }, signer);
-```
 
-### Aptos
-
-```typescript
-import { Account, Ed25519PrivateKey } from '@aptos-labs/ts-sdk';
-
-// Create account from private key
-const privateKey = new Ed25519PrivateKey('0x...');
-const account = Account.fromPrivateKey({ privateKey });
-
-// Transfer APT on Aptos
-const result = await smoothSend.transfer({
-  from: account.accountAddress.toString(),
-  to: '0x742d35cc6634c0532925a3b8d2d2d2d2d2d2d2d3',
-  token: 'APT',
-  amount: '100000000', // 1 APT (8 decimals)
-  chain: 'aptos'
-}, privateKey);
+console.log('Transfer successful:', result.txHash);
+console.log('Explorer URL:', result.explorerUrl);
 ```
 
 ## 🔧 Configuration
 
-### Custom Chain Configuration
+### SDK Configuration
 
 ```typescript
 const smoothSend = new SmoothSendSDK({
+  timeout: 30000,        // Request timeout in milliseconds
+  retries: 3,            // Number of retry attempts
   customChainConfigs: {
     avalanche: {
       relayerUrl: 'https://custom-avax-relayer.com'
-    },
-    aptos: {
-      relayerUrl: 'https://custom-aptos-relayer.com'
     }
   }
 });
 ```
 
-### Environment Configuration
+### Dynamic Configuration
+
+The SDK now supports dynamic configuration fetching from relayers:
 
 ```typescript
-// For testnet usage
-const testnetConfig = SmoothSendSDK.getAllChainConfigs(true);
+import { chainConfigService } from '@smoothsend/sdk';
 
-const smoothSend = new SmoothSendSDK({
-  customChainConfigs: testnetConfig
-});
+// Fetch dynamic configurations
+const dynamicConfigs = await chainConfigService.getAllChainConfigs();
+
+// Get specific chain config with fallback
+const avalancheConfig = await chainConfigService.getChainConfig('avalanche');
+```
+
+### Static Configuration
+
+For offline scenarios or when you need guaranteed configuration:
+
+```typescript
+import { getChainConfig, getAllChainConfigs } from '@smoothsend/sdk';
+
+// Get static configuration
+const staticConfig = getChainConfig('avalanche');
+const allStaticConfigs = getAllChainConfigs();
 ```
 
 ## 🎯 Example dApps
@@ -227,7 +292,7 @@ A simple token transfer interface showcasing the SDK:
 ```typescript
 // examples/token-sender/src/App.tsx
 import React, { useState } from 'react';
-import { SmoothSendSDK } from '@smoothsend/sdk';
+import { SmoothSendSDK, getChainConfig, getTokenDecimals } from '@smoothsend/sdk';
 import { ethers } from 'ethers';
 
 function TokenSender() {
@@ -240,12 +305,19 @@ function TokenSender() {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       
+      // Get chain configuration
+      const chainConfig = getChainConfig('avalanche');
+      
+      // Format amount with proper decimals
+      const decimals = getTokenDecimals(selectedToken);
+      const formattedAmount = ethers.parseUnits(amount, decimals).toString();
+      
       const result = await sdk.transfer({
         from: await signer.getAddress(),
         to: recipientAddress,
         token: selectedToken,
-        amount: amount,
-        chain: selectedChain
+        amount: formattedAmount,
+        chain: 'avalanche'
       }, signer);
       
       alert(`Transfer successful! Tx: ${result.txHash}`);
@@ -270,12 +342,13 @@ function TokenSender() {
 
 ```typescript
 // examples/nft-marketplace/src/components/BuyNFT.tsx
-import { SmoothSendSDK } from '@smoothsend/sdk';
+import { SmoothSendSDK, getChainConfig } from '@smoothsend/sdk';
 
 class NFTMarketplace {
   private sdk = new SmoothSendSDK();
 
   async purchaseNFT(nftId: string, price: string, paymentToken: string) {
+    // Get quote first
     const quote = await this.sdk.getQuote({
       from: buyerAddress,
       to: marketplaceAddress,
@@ -283,6 +356,8 @@ class NFTMarketplace {
       amount: price,
       chain: 'avalanche'
     });
+
+    console.log(`Fee: ${quote.relayerFee}, Total: ${quote.total}`);
 
     // Execute payment
     const result = await this.sdk.transfer({
@@ -315,14 +390,14 @@ class FarmingService {
         {
           from: userAddress,
           to: lpTokenAddress, // Approval
-          token: 'LP_TOKEN',
+          token: 'USDC', // Use supported token
           amount: amount,
           chain: 'avalanche'
         },
         {
           from: userAddress,
           to: farmAddress, // Stake
-          token: 'LP_TOKEN',
+          token: 'USDC',
           amount: amount,
           chain: 'avalanche'
         }
