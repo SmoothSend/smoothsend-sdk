@@ -39,6 +39,8 @@ aptos-relayer/
 avax-relayer/
 frontend-vite/
 frontend-test/
+APTOS_REMOVAL_SUMMARY.md
+RELAYER_INTEGRATION_FIXES.md
 
 # Temporary files
 .tmp/

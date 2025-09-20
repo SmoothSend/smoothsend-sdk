@@ -1,6 +1,6 @@
 {
   "name": "@smoothsend/sdk",
-  "version": "1.0.0-beta.5",
+  "version": "1.0.0-beta.6",
   "description": "Multi-chain gasless transaction SDK for seamless dApp integration",
   "type": "module",
   "main": "dist/index.js",
@@ -27,11 +27,11 @@
     "blockchain",
     "ethereum",
     "avalanche",
-    "aptos",
     "dapp",
     "web3",
     "meta-transactions",
-    "relayer"
+    "relayer",
+    "multi-chain"
   ],
   "author": "SmoothSend Team",
   "license": "MIT",
@@ -45,8 +45,7 @@
   "homepage": "https://smoothsend.xyz",
   "dependencies": {
     "axios": "^1.6.0",
-    "ethers": "^6.8.0",
-    "@aptos-labs/ts-sdk": "^1.15.0"
+    "ethers": "^6.8.0"
   },
   "devDependencies": {
     "@types/node": "^20.8.0",
