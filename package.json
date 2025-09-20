@@ -1,6 +1,6 @@
 {
   "name": "@smoothsend/sdk",
-  "version": "1.0.0-beta.2",
+  "version": "1.0.0-beta.3",
   "description": "Multi-chain gasless transaction SDK for seamless dApp integration",
   "type": "module",
   "main": "dist/index.js",
