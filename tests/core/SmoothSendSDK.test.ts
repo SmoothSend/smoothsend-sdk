@@ -297,11 +297,11 @@ describe('SmoothSendSDK', () => {
     it('should get chain config', () => {
       const config = SmoothSendSDK.getChainConfig('avalanche');
       expect(config).toHaveProperty('name', 'Avalanche');
-      expect(config).toHaveProperty('chainId', 43114);
+      expect(config).toHaveProperty('chainId', 43113);
     });
 
     it('should get testnet chain config', () => {
-      const config = SmoothSendSDK.getChainConfig('avalanche', true);
+      const config = SmoothSendSDK.getChainConfig('avalanche');
       expect(config).toHaveProperty('name', 'Avalanche Fuji');
       expect(config).toHaveProperty('chainId', 43113);
     });

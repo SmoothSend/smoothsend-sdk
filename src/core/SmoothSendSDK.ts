@@ -37,14 +37,14 @@ export class SmoothSendSDK {
   private initializeAdapters(): void {
     const chainConfigs = getAllChainConfigs();
     
-    // Initialize Avalanche adapter
+    // Initialize Avalanche adapter (testnet only)
     const avalancheConfig = {
       ...chainConfigs.avalanche,
       ...this.config.customChainConfigs?.avalanche
     };
     this.adapters.set('avalanche', new AvalancheAdapter(avalancheConfig));
 
-    // Initialize Aptos adapter
+    // Initialize Aptos adapter (testnet only)
     const aptosConfig = {
       ...chainConfigs.aptos,
       ...this.config.customChainConfigs?.aptos
@@ -308,12 +308,12 @@ export class SmoothSendSDK {
     return ['avalanche', 'aptos'];
   }
 
-  public static getChainConfig(chain: SupportedChain, testnet: boolean = false): ChainConfig {
-    return getChainConfig(chain, testnet);
+  public static getChainConfig(chain: SupportedChain): ChainConfig {
+    return getChainConfig(chain);
   }
 
-  public static getAllChainConfigs(testnet: boolean = false): Record<SupportedChain, ChainConfig> {
-    return getAllChainConfigs(testnet);
+  public static getAllChainConfigs(): Record<SupportedChain, ChainConfig> {
+    return getAllChainConfigs();
   }
 }
 

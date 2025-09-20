@@ -30,9 +30,9 @@ export class AptosAdapter implements IChainAdapter {
   constructor(public readonly config: ChainConfig) {
     this.httpClient = new HttpClient(config.relayerUrl + '/api/v1/relayer');
     
-    // Initialize Aptos client
+    // Initialize Aptos client (testnet only)
     const aptosConfig = new AptosConfig({ 
-      network: config.chainId === '1' ? Network.MAINNET : Network.TESTNET 
+      network: Network.TESTNET 
     });
     this.aptosClient = new Aptos(aptosConfig);
   }

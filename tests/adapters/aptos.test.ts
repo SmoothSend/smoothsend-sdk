@@ -63,11 +63,11 @@ describe('AptosAdapter', () => {
       expect(HttpClient).toHaveBeenCalledWith(mockConfig.relayerUrl + '/api/v1/relayer');
     });
 
-    it('should initialize Aptos client with mainnet config', () => {
-      const mainnetConfig = { ...mockConfig, chainId: '1' };
-      new AptosAdapter(mainnetConfig);
-
-      expect(AptosConfig).toHaveBeenCalledWith({ network: Network.MAINNET });
+    it('should initialize Aptos client with testnet config', () => {
+      const testnetConfig = { ...mockConfig, chainId: '2' };
+      new AptosAdapter(testnetConfig);
+      
+      expect(AptosConfig).toHaveBeenCalledWith({ network: Network.TESTNET });
     });
 
     it('should initialize Aptos client with testnet config', () => {

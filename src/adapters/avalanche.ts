@@ -24,8 +24,9 @@ export class AvalancheAdapter implements IChainAdapter {
   }
 
   async getQuote(request: TransferRequest): Promise<TransferQuote> {
+    const chainName = this.config.chainId === 43113 ? 'fuji' : 'avalanche';
     const response = await this.httpClient.post('/quote', {
-      chainName: 'fuji', // or 'avalanche' based on mainnet/testnet
+      chainName,
       token: request.token,
       amount: request.amount
     });
@@ -50,9 +51,10 @@ export class AvalancheAdapter implements IChainAdapter {
 
   async prepareTransfer(request: TransferRequest, quote: TransferQuote): Promise<SignatureData> {
     // Get user nonce
+    const chainName = this.config.chainId === 43113 ? 'fuji' : 'avalanche';
     const nonceResponse = await this.httpClient.get('/nonce', {
       params: {
-        chainName: 'fuji',
+        chainName,
         userAddress: request.from
       }
     });
@@ -70,7 +72,7 @@ export class AvalancheAdapter implements IChainAdapter {
 
     // Prepare signature data
     const signatureResponse = await this.httpClient.post('/prepare-signature', {
-      chainName: 'fuji',
+      chainName,
       from: request.from,
       to: request.to,
       tokenSymbol: request.token,
@@ -178,9 +180,10 @@ export class AvalancheAdapter implements IChainAdapter {
   }
 
   async getNonce(address: string): Promise<string> {
+    const chainName = this.config.chainId === 43113 ? 'fuji' : 'avalanche';
     const response = await this.httpClient.get('/nonce', {
       params: {
-        chainName: 'fuji',
+        chainName,
         userAddress: address
       }
     });
@@ -193,9 +196,10 @@ export class AvalancheAdapter implements IChainAdapter {
   }
 
   async getTransactionStatus(txHash: string): Promise<any> {
+    const chainName = this.config.chainId === 43113 ? 'fuji' : 'avalanche';
     const response = await this.httpClient.get('/transfer-status', {
       params: {
-        chainName: 'fuji',
+        chainName,
         transferHash: txHash
       }
     });
