@@ -9,7 +9,7 @@ export { AptosAdapter } from './adapters/aptos';
 export * from './types';
 
 // Configuration
-export { getChainConfig, getAllChainConfigs, CHAIN_CONFIGS, TESTNET_CHAIN_CONFIGS } from './config/chains';
+export { getChainConfig, getAllChainConfigs, CHAIN_CONFIGS } from './config/chains';
 
 // Utilities
 export { HttpClient } from './utils/http';
