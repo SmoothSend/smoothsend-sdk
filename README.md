@@ -55,8 +55,8 @@ try {
 
 | Chain | Network | Status | Features |
 |-------|---------|--------|----------|
-| Avalanche | Mainnet/Fuji | ✅ Active | EIP-712 signatures, Batch transfers |
-| Aptos | Mainnet/Testnet | ✅ Active | Native signatures, USDC fees |
+| Avalanche | Fuji | ✅ Active | EIP-712 signatures, Batch transfers |
+| Aptos | Testnet | ✅ Active | Native signatures, USDC fees |
 
 ## 📚 API Reference
 
@@ -335,64 +335,12 @@ class FarmingService {
 }
 ```
 
-## 🛠️ Development
-
-### Building the SDK
-
-```bash
-# Install dependencies
-npm install
-
-# Build the SDK
-npm run build
-
-# Run tests
-npm test
-
-# Lint code
-npm run lint
-```
-
-### Running Examples
-
-```bash
-# Token Sender dApp
-npm run example:token-sender
-
-# NFT Marketplace
-npm run example:nft-marketplace
-```
-
 ## 🔐 Security
 
 - All transactions require user signature approval
 - Private keys never leave the client
 - Rate limiting and validation on relayer endpoints
 - Comprehensive input validation
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-- 📧 Email: support@smoothsend.xyz
-- 💬 Discord: [SmoothSend Community](https://discord.gg/smoothsend)
-- 📖 Documentation: [docs.smoothsend.xyz](https://docs.smoothsend.xyz)
-- 🐛 Issues: [GitHub Issues](https://github.com/smoothsend/sdk/issues)
-
-## 🗺️ Roadmap
-
-- [ ] Polygon support
-- [ ] Ethereum mainnet support
-- [ ] Cross-chain transfers
-- [ ] Mobile SDK (React Native)
-- [ ] Advanced batch operations
-- [ ] DeFi protocol integrations
 
 ---
 
