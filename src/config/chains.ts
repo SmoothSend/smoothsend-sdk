@@ -5,7 +5,7 @@ export const CHAIN_CONFIGS: Record<SupportedChain, ChainConfig> = {
     name: 'Avalanche Fuji',
     chainId: 43113,
     rpcUrl: 'https://api.avax-test.network/ext/bc/C/rpc',
-    relayerUrl: 'https://avax-testnet.smoothsend.xyz',
+    relayerUrl: 'https://smoothsendevm.onrender.com/',
     explorerUrl: 'https://testnet.snowtrace.io',
     nativeCurrency: {
       name: 'Avalanche',
@@ -17,7 +17,7 @@ export const CHAIN_CONFIGS: Record<SupportedChain, ChainConfig> = {
     name: 'Aptos Testnet',
     chainId: '2',
     rpcUrl: 'https://fullnode.testnet.aptoslabs.com/v1',
-    relayerUrl: 'https://testnet.smoothsend.xyz',
+    relayerUrl: 'https://app.smoothsend.xyz',
     explorerUrl: 'https://explorer.aptoslabs.com/?network=testnet',
     nativeCurrency: {
       name: 'Aptos',
