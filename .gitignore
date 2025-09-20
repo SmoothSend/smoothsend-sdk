@@ -37,6 +37,8 @@ logs/
 # Relayer directories (for reference only)
 aptos-relayer/
 avax-relayer/
+frontend-vite/
+frontend-test/
 
 # Temporary files
 .tmp/

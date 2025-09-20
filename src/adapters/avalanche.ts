@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+import { ethers, isAddress } from 'ethers';
 import {
   IChainAdapter,
   SupportedChain,
@@ -209,7 +209,7 @@ export class AvalancheAdapter implements IChainAdapter {
 
   validateAddress(address: string): boolean {
     try {
-      return ethers.isAddress(address);
+      return isAddress(address);
     } catch {
       return false;
     }
