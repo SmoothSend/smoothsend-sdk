@@ -1,0 +1,44 @@
+# Source files
+src/
+tsconfig.json
+rollup.config.js
+
+# Development files
+.eslintrc.js
+jest.config.js
+*.test.ts
+*.spec.ts
+__tests__/
+
+# Build artifacts
+*.tsbuildinfo
+
+# Documentation
+docs/
+examples/
+
+# CI/CD
+.github/
+.travis.yml
+.circleci/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Relayer directories (reference only)
+aptos-relayer/
+avax-relayer/
+
+# Temporary
+.tmp/
+temp/
+
