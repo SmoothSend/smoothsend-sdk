@@ -13,7 +13,12 @@ import {
   SmoothSendError,
   TransferEvent,
   EventListener,
-  IChainAdapter
+  IChainAdapter,
+  ChainInfo,
+  HealthResponse,
+  GasEstimateResponse,
+  DomainSeparatorResponse,
+  TransferStatusResponse
 } from '../types';
 import { getChainConfig, getAllChainConfigs } from '../config/chains';
 import { chainConfigService, DynamicChainConfig } from '../services/chainConfigService';
@@ -466,6 +471,129 @@ export class SmoothSendSDK {
     const adapter = this.getAdapter(chain);
     const config = adapter.config as DynamicChainConfig;
     return config.tokens || [];
+  }
+
+  // OpenAPI-aligned endpoint methods
+  /**
+   * Health check endpoint
+   */
+  public async getHealth(): Promise<HealthResponse> {
+    await this.initializeAdapters();
+    const adapter = this.getAdapter('avalanche'); // Use first available adapter
+    const httpClient = (adapter as any).httpClient;
+    
+    try {
+      const response = await httpClient.get('/health');
+      return response.data;
+    } catch (error) {
+      throw new SmoothSendError(
+        `Health check failed: ${error instanceof Error ? error.message : String(error)}`,
+        'HEALTH_CHECK_ERROR'
+      );
+    }
+  }
+
+  /**
+   * Get supported blockchain networks
+   */
+  public async getSupportedChainsInfo(): Promise<ChainInfo[]> {
+    await this.initializeAdapters();
+    const adapter = this.getAdapter('avalanche'); // Use first available adapter
+    const httpClient = (adapter as any).httpClient;
+    
+    try {
+      const response = await httpClient.get('/chains');
+      return response.data?.chains || [];
+    } catch (error) {
+      throw new SmoothSendError(
+        `Failed to get supported chains: ${error instanceof Error ? error.message : String(error)}`,
+        'CHAINS_ERROR'
+      );
+    }
+  }
+
+  /**
+   * Get supported tokens for a specific chain
+   */
+  public async getSupportedTokensForChain(chainName: string): Promise<TokenInfo[]> {
+    await this.initializeAdapters();
+    const adapter = this.getAdapter('avalanche'); // Use first available adapter
+    const httpClient = (adapter as any).httpClient;
+    
+    try {
+      const response = await httpClient.get(`/chains/${chainName}/tokens`);
+      return response.data?.tokens || [];
+    } catch (error) {
+      throw new SmoothSendError(
+        `Failed to get supported tokens: ${error instanceof Error ? error.message : String(error)}`,
+        'TOKENS_ERROR'
+      );
+    }
+  }
+
+  /**
+   * Estimate gas cost for transfers
+   */
+  public async estimateGas(chainName: string, transfers: any[]): Promise<GasEstimateResponse> {
+    await this.initializeAdapters();
+    const adapter = this.getAdapter('avalanche'); // Use first available adapter
+    const httpClient = (adapter as any).httpClient;
+    
+    try {
+      const response = await httpClient.post('/estimate-gas', {
+        chainName,
+        transfers
+      });
+      return response.data;
+    } catch (error) {
+      throw new SmoothSendError(
+        `Gas estimation failed: ${error instanceof Error ? error.message : String(error)}`,
+        'GAS_ESTIMATION_ERROR'
+      );
+    }
+  }
+
+  /**
+   * Get EIP-712 domain separator for a specific chain
+   */
+  public async getDomainSeparator(chainName: string): Promise<DomainSeparatorResponse> {
+    await this.initializeAdapters();
+    const adapter = this.getAdapter('avalanche'); // Use first available adapter
+    const httpClient = (adapter as any).httpClient;
+    
+    try {
+      const response = await httpClient.get(`/domain-separator/${chainName}`);
+      return response.data;
+    } catch (error) {
+      throw new SmoothSendError(
+        `Failed to get domain separator: ${error instanceof Error ? error.message : String(error)}`,
+        'DOMAIN_SEPARATOR_ERROR'
+      );
+    }
+  }
+
+  /**
+   * Check transfer execution status
+   */
+  public async getTransferStatus(chainName: string, transferHash: string): Promise<TransferStatusResponse> {
+    await this.initializeAdapters();
+    const adapter = this.getAdapter('avalanche'); // Use first available adapter
+    const httpClient = (adapter as any).httpClient;
+    
+    try {
+      const response = await httpClient.get('/transfer-status', {
+        params: {
+          chainName,
+          transferHash
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw new SmoothSendError(
+        `Failed to get transfer status: ${error instanceof Error ? error.message : String(error)}`,
+        'TRANSFER_STATUS_ERROR'
+      );
+    }
   }
 
   // Private helper methods

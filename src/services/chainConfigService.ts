@@ -1,4 +1,4 @@
-import { ChainConfig, SupportedChain, ApiResponse } from '../types';
+import { ChainConfig, SupportedChain, ApiResponse, ChainInfo } from '../types';
 import { HttpClient } from '../utils/http';
 
 export interface DynamicChainConfig extends ChainConfig {
@@ -11,12 +11,7 @@ export interface DynamicChainConfig extends ChainConfig {
   };
 }
 
-export interface RelayerChainInfo {
-  name: string;
-  displayName: string;
-  chainId: string | number;
-  explorerUrl: string;
-  tokens: string[];
+export interface RelayerChainInfo extends ChainInfo {
   contractAddress?: string;
   rpcUrl?: string;
 }
@@ -163,13 +158,14 @@ export class ChainConfigService {
 
   private mapRelayerChainToConfig(chain: RelayerChainInfo, relayerUrl: string): DynamicChainConfig {
     return {
-      name: chain.displayName || chain.name,
+      name: chain.name,
+      displayName: chain.displayName,
       chainId: chain.chainId,
       rpcUrl: chain.rpcUrl || this.getDefaultRpcUrl(chain.name),
       relayerUrl: relayerUrl,
       explorerUrl: chain.explorerUrl,
-      nativeCurrency: this.getNativeCurrencyForChain(chain.name),
       tokens: chain.tokens || [],
+      nativeCurrency: this.getNativeCurrencyForChain(chain.name),
       contractAddress: chain.contractAddress,
     };
   }

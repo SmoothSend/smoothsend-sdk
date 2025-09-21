@@ -4,11 +4,13 @@ import { ChainConfig, SupportedChain } from '../types';
 // Multi-chain architecture maintained for future expansion
 export const CHAIN_CONFIGS: Record<SupportedChain, ChainConfig> = {
   avalanche: {
-    name: 'Avalanche Fuji Testnet',
+    name: 'avalanche-fuji',
+    displayName: 'Avalanche Fuji Testnet',
     chainId: 43113,
     rpcUrl: 'https://api.avax-test.network/ext/bc/C/rpc',
     relayerUrl: 'https://smoothsendevm.onrender.com',
     explorerUrl: 'https://testnet.snowtrace.io',
+    tokens: ['USDC'],
     nativeCurrency: {
       name: 'Avalanche',
       symbol: 'AVAX',

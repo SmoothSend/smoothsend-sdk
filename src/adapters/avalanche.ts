@@ -11,7 +11,9 @@ import {
   TokenBalance,
   TokenInfo,
   SmoothSendError,
-  AvalancheTransferData
+  AvalancheTransferData,
+  TransferQuoteResponse,
+  RelayTransferResponse
 } from '../types';
 import { HttpClient } from '../utils/http';
 
@@ -40,15 +42,13 @@ export class AvalancheAdapter implements IChainAdapter {
         );
       }
 
-      const data = response.data;
+      const data = response.data as TransferQuoteResponse;
       return {
         amount: data.amount,
-        relayerFee: data.relayerFee, // Response uses 'relayerFee' field
+        relayerFee: data.relayerFee,
         total: data.total,
-        feePercentage: data.feePercentage || 0,
-        estimatedGas: undefined, // Not provided by this relayer
-        deadline: undefined,
-        nonce: undefined
+        feePercentage: data.feePercentage,
+        contractAddress: data.contractAddress
       };
     } catch (error) {
       if (error instanceof SmoothSendError) throw error;
@@ -144,16 +144,17 @@ export class AvalancheAdapter implements IChainAdapter {
         );
       }
 
-      const data = response.data;
-      const txHash = data.txHash || data.transactionHash;
+      const data = response.data as RelayTransferResponse;
       
       return {
         success: true,
-        txHash,
+        txHash: data.txHash,
         blockNumber: data.blockNumber,
         gasUsed: data.gasUsed,
-        transferId: data.transferId || data.transactionId,
-        explorerUrl: data.explorerUrl || `${this.config.explorerUrl}/tx/${txHash}`
+        transferId: data.transferId,
+        explorerUrl: data.explorerUrl,
+        fee: data.fee,
+        executionTime: data.executionTime
       };
     } catch (error) {
       if (error instanceof SmoothSendError) throw error;
@@ -367,14 +368,15 @@ export class AvalancheAdapter implements IChainAdapter {
                              Array.isArray(data) ? data : [data];
       
       for (const result of transferResults) {
-        const txHash = result.txHash || result.transactionHash;
         results.push({
           success: true,
-          txHash,
+          txHash: result.txHash,
           blockNumber: result.blockNumber,
           gasUsed: result.gasUsed,
-          transferId: result.transferId || result.transactionId,
-          explorerUrl: result.explorerUrl || `${this.config.explorerUrl}/tx/${txHash}`
+          transferId: result.transferId,
+          explorerUrl: result.explorerUrl,
+          fee: result.fee,
+          executionTime: result.executionTime
         });
       }
 
