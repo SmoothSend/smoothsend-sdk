@@ -42,7 +42,7 @@
   "bugs": {
     "url": "https://github.com/smoothsend/sdk/issues"
   },
-  "homepage": "https://smoothsend.xyz",
+  "homepage": "https://home.smoothsend.xyz",
   "dependencies": {
     "@smoothsend/sdk": "^1.0.0-beta.10",
     "axios": "^1.6.0",
