@@ -153,11 +153,11 @@ export class AptosAdapter implements IChainAdapter {
       const balanceData = response.data;
       
       return [{
-        token: token || 'USDC',
+        token: balanceData?.symbol || token || 'USDC',
         balance: balanceData?.balance?.toString() || '0',
         decimals: balanceData?.decimals || 6,
         symbol: balanceData?.symbol || token || 'USDC',
-        name: balanceData?.name
+        name: balanceData?.name || 'USD Coin (Testnet)'
       }];
     } catch (error) {
       throw new SmoothSendError(
@@ -225,6 +225,7 @@ export class AptosAdapter implements IChainAdapter {
 
   validateAddress(address: string): boolean {
     // Aptos address validation (0x prefix, up to 64 hex characters)
+    // Aptos addresses can be shorter and are automatically padded
     return /^0x[a-fA-F0-9]{1,64}$/.test(address);
   }
 

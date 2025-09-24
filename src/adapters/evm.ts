@@ -41,14 +41,21 @@ export class EVMAdapter implements IChainAdapter {
 
   /**
    * Build API path with chain name for EVM relayer
+   * EVM relayer uses /chains/{chainName} prefix for most endpoints
    */
   private getApiPath(endpoint: string): string {
-    return `/${this.chain}${endpoint}`;
+    // Some endpoints don't use chain prefix
+    const noChainPrefixEndpoints = ['/nonce', '/health', '/chains'];
+    if (noChainPrefixEndpoints.some(prefix => endpoint.startsWith(prefix))) {
+      return endpoint;
+    }
+    return `/chains/${this.chain}${endpoint}`;
   }
 
   async getQuote(request: TransferRequest): Promise<TransferQuote> {
     try {
-      const response = await this.httpClient.post(this.getApiPath('/quote'), {
+      const response = await this.httpClient.post('/quote', {
+        chainName: this.chain === 'avalanche' ? 'avalanche-fuji' : this.chain,
         from: request.from,
         to: request.to,
         tokenSymbol: request.token,
@@ -82,7 +89,8 @@ export class EVMAdapter implements IChainAdapter {
       const nonce = await this.getNonce(request.from);
       const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
 
-      const response = await this.httpClient.post(this.getApiPath('/prepare-signature'), {
+      const response = await this.httpClient.post('/prepare-signature', {
+        chainName: this.chain === 'avalanche' ? 'avalanche-fuji' : this.chain,
         from: request.from,
         to: request.to,
         tokenSymbol: request.token,
@@ -114,7 +122,7 @@ export class EVMAdapter implements IChainAdapter {
 
   async executeTransfer(signedData: SignedTransferData): Promise<TransferResult> {
     try {
-      const response = await this.httpClient.post(this.getApiPath('/transfer'), signedData.transferData);
+      const response = await this.httpClient.post('/relay-transfer', signedData.transferData);
 
       if (!response.success) {
         throw new Error(response.error || 'Unknown error occurred');
@@ -146,7 +154,7 @@ export class EVMAdapter implements IChainAdapter {
    */
   async executeBatchTransfer?(signedTransfers: SignedTransferData[]): Promise<TransferResult[]> {
     try {
-      const response = await this.httpClient.post(this.getApiPath('/batch-transfer'), {
+      const response = await this.httpClient.post('/relay-batch-transfer', {
         transfers: signedTransfers.map(transfer => transfer.transferData)
       });
 
@@ -164,32 +172,6 @@ export class EVMAdapter implements IChainAdapter {
     }
   }
 
-  async getBalance(address: string, token?: string): Promise<TokenBalance[]> {
-    try {
-      const response = await this.httpClient.get(this.getApiPath(`/balance/${address}`));
-      
-      // Handle both successful and error responses from HttpClient
-      if (!response.success) {
-        throw new Error(response.error || 'Unknown error occurred');
-      }
-
-      const balanceData = response.data;
-      
-      return [{
-        token: token || 'USDC',
-        balance: balanceData?.balance?.toString() || '0',
-        decimals: balanceData?.decimals || 6,
-        symbol: balanceData?.symbol || token || 'USDC',
-        name: balanceData?.name
-      }];
-    } catch (error) {
-      throw new SmoothSendError(
-        `Failed to get EVM balance: ${error instanceof Error ? error.message : String(error)}`,
-        'EVM_BALANCE_ERROR',
-        this.chain
-      );
-    }
-  }
 
   async getTokenInfo(token: string): Promise<TokenInfo> {
     try {

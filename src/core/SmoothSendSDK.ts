@@ -548,6 +548,15 @@ export class SmoothSendSDK {
   ): Promise<TokenBalance[]> {
     await this.initializeAdapters();
     const adapter = this.getAdapter(chain);
+    
+    if (!adapter.getBalance) {
+      throw new SmoothSendError(
+        `Balance functionality not available for chain: ${chain}`,
+        'BALANCE_NOT_SUPPORTED',
+        chain
+      );
+    }
+    
     return await adapter.getBalance(address, token);
   }
 

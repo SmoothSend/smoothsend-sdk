@@ -311,7 +311,7 @@ export interface IChainAdapter {
   executeBatchTransfer?(signedTransfers: SignedTransferData[]): Promise<TransferResult[]>;
   
   // Utility methods
-  getBalance(address: string, token?: string): Promise<TokenBalance[]>;
+  getBalance?(address: string, token?: string): Promise<TokenBalance[]>;
   getTokenInfo(token: string): Promise<TokenInfo>;
   getNonce(address: string): Promise<string>;
   getTransactionStatus(txHash: string): Promise<any>;
