@@ -380,9 +380,12 @@ export class SmoothSendSDK {
     // Step 3: Sign the data
     let signature: string;
     let transferData: any;
+    let signatureType: 'EIP712' | 'Ed25519';
 
-    if (request.chain === 'avalanche') {
-      // EIP-712 signing for Avalanche
+    const ecosystem = CHAIN_ECOSYSTEM_MAP[request.chain];
+    
+    if (ecosystem === 'evm') {
+      // EIP-712 signing for EVM chains (Avalanche)
       signature = await signer.signTypedData(
         signatureData.domain,
         signatureData.types,
@@ -390,7 +393,7 @@ export class SmoothSendSDK {
       );
       
       transferData = {
-        chainName: 'avalanche-fuji',
+        chainName: request.chain === 'avalanche' ? 'avalanche-fuji' : request.chain,
         from: request.from,
         to: request.to,
         tokenSymbol: request.token,
@@ -398,12 +401,26 @@ export class SmoothSendSDK {
         relayerFee: quote.relayerFee,
         nonce: signatureData.message.nonce,
         deadline: signatureData.message.deadline,
-        // Note: permitData would be added here if implementing ERC-2612 permit signatures
       };
+      signatureType = 'EIP712';
+    } else if (ecosystem === 'aptos') {
+      // Aptos signing - signer should handle the transaction signing
+      signature = await signer.signTransaction(signatureData.message);
+      
+      transferData = {
+        fromAddress: request.from,
+        toAddress: request.to,
+        amount: request.amount,
+        coinType: quote.contractAddress,
+        relayerFee: quote.relayerFee,
+        publicKey: await signer.publicKey()
+      };
+      signatureType = 'Ed25519';
     } else {
       throw new SmoothSendError(
-        `Unsupported chain: ${request.chain}`,
-        'UNSUPPORTED_CHAIN'
+        `Unsupported chain ecosystem: ${ecosystem}`,
+        'UNSUPPORTED_CHAIN_ECOSYSTEM',
+        request.chain
       );
     }
 
@@ -418,7 +435,7 @@ export class SmoothSendSDK {
     const signedTransferData: SignedTransferData = {
       transferData,
       signature,
-      signatureType: 'EIP712' // Currently only EIP712 supported
+      signatureType
     };
 
     return await this.executeTransfer(signedTransferData, request.chain);
@@ -445,12 +462,15 @@ export class SmoothSendSDK {
         // Prepare signature data
         const signatureData = await this.prepareTransfer(transfer, quote);
         
-        // Sign the data
+        // Sign the data using unified approach
         let signature: string;
         let transferData: any;
+        let signatureType: 'EIP712' | 'Ed25519';
 
-        if (transfer.chain === 'avalanche') {
-          // EIP-712 signing for Avalanche
+        const ecosystem = CHAIN_ECOSYSTEM_MAP[transfer.chain];
+        
+        if (ecosystem === 'evm') {
+          // EIP-712 signing for EVM chains
           signature = await signer.signTypedData(
             signatureData.domain,
             signatureData.types,
@@ -458,7 +478,7 @@ export class SmoothSendSDK {
           );
           
           transferData = {
-            chainName: 'avalanche-fuji',
+            chainName: transfer.chain === 'avalanche' ? 'avalanche-fuji' : transfer.chain,
             from: transfer.from,
             to: transfer.to,
             tokenSymbol: transfer.token,
@@ -466,19 +486,33 @@ export class SmoothSendSDK {
             relayerFee: quote.relayerFee,
             nonce: signatureData.message.nonce,
             deadline: signatureData.message.deadline,
-            // Note: permitData would be added here if implementing ERC-2612 permit signatures
           };
+          signatureType = 'EIP712';
+        } else if (ecosystem === 'aptos') {
+          // Aptos signing
+          signature = await signer.signTransaction(signatureData.message);
+          
+          transferData = {
+            fromAddress: transfer.from,
+            toAddress: transfer.to,
+            amount: transfer.amount,
+            coinType: quote.contractAddress,
+            relayerFee: quote.relayerFee,
+            publicKey: await signer.publicKey()
+          };
+          signatureType = 'Ed25519';
         } else {
           throw new SmoothSendError(
-            `Unsupported chain: ${transfer.chain}`,
-            'UNSUPPORTED_CHAIN'
+            `Unsupported chain ecosystem: ${ecosystem}`,
+            'UNSUPPORTED_CHAIN_ECOSYSTEM',
+            transfer.chain
           );
         }
 
         signedTransfers.push({
           transferData,
           signature,
-          signatureType: 'EIP712' // Currently only EIP712 supported
+          signatureType
         });
       }
 
@@ -703,44 +737,6 @@ export class SmoothSendSDK {
 
   // Ecosystem-specific methods for advanced usage
   
-  /**
-   * Get the EVM adapter for a specific EVM chain
-   * Provides access to EVM-specific features like permit support and gas estimation
-   */
-  public async getEVMAdapter(chain: SupportedChain): Promise<EVMAdapter> {
-    await this.initializeAdapters();
-    
-    if (CHAIN_ECOSYSTEM_MAP[chain] !== 'evm') {
-      throw new SmoothSendError(
-        `Chain '${chain}' is not an EVM chain`,
-        'NOT_EVM_CHAIN',
-        chain
-      );
-    }
-    
-    const adapter = this.getAdapter(chain);
-    return adapter as EVMAdapter;
-  }
-
-  /**
-   * Get the Aptos adapter for a specific Aptos chain
-   * Provides access to Aptos-specific features like gasless wallet transactions and Move functions
-   */
-  public async getAptosAdapter(chain: SupportedChain): Promise<AptosAdapter> {
-    await this.initializeAdapters();
-    
-    if (CHAIN_ECOSYSTEM_MAP[chain] !== 'aptos') {
-      throw new SmoothSendError(
-        `Chain '${chain}' is not an Aptos chain`,
-        'NOT_APTOS_CHAIN',
-        chain
-      );
-    }
-    
-    const adapter = this.getAdapter(chain);
-    return adapter as AptosAdapter;
-  }
-
   /**
    * Check if a chain belongs to a specific ecosystem
    */

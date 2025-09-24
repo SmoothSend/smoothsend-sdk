@@ -148,7 +148,7 @@ export interface SignatureData {
 export interface SignedTransferData {
   transferData: any;
   signature: string;
-  signatureType: 'EIP712'; // Will support more types when additional chains are added
+  signatureType: 'EIP712' | 'Ed25519'; // Support for EVM and Aptos signature types
 }
 
 // Balance and Token Types

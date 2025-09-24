@@ -211,58 +211,6 @@ export class AptosAdapter implements IChainAdapter {
   }
 
   /**
-   * Aptos-specific gasless transaction with wallet integration
-   * This method provides full transparency to the user about what they're signing
-   */
-  async executeGaslessWithWallet(signedData: SignedTransferData): Promise<TransferResult> {
-    try {
-      const response = await this.httpClient.post(this.getApiPath('/gasless-with-wallet'), {
-        userSignature: {
-          signature: signedData.signature,
-          publicKey: signedData.transferData.publicKey
-        },
-        fromAddress: signedData.transferData.fromAddress,
-        toAddress: signedData.transferData.toAddress,
-        amount: signedData.transferData.amount,
-        coinType: signedData.transferData.coinType,
-        relayerFee: signedData.transferData.relayerFee
-      });
-
-      return {
-        success: response.data.success || true,
-        txHash: response.data.hash,
-        transferId: response.data.transactionId,
-        explorerUrl: this.buildAptosExplorerUrl(response.data.hash),
-        gasFeePaidBy: 'relayer',
-        userPaidAPT: false,
-        transparency: 'User saw full transaction details in wallet'
-      };
-    } catch (error) {
-      throw new SmoothSendError(
-        `Failed to execute gasless wallet transaction: ${error instanceof Error ? error.message : String(error)}`,
-        'APTOS_GASLESS_WALLET_ERROR',
-        this.chain
-      );
-    }
-  }
-
-  /**
-   * Get Aptos safety statistics (beta limits)
-   */
-  async getSafetyStats(): Promise<any> {
-    try {
-      const response = await this.httpClient.get(this.getApiPath('/safety-stats'));
-      return response.data;
-    } catch (error) {
-      throw new SmoothSendError(
-        `Failed to get safety stats: ${error instanceof Error ? error.message : String(error)}`,
-        'APTOS_SAFETY_STATS_ERROR',
-        this.chain
-      );
-    }
-  }
-
-  /**
    * Get Aptos token address from symbol
    */
   private getAptosTokenAddress(tokenSymbol: string): string {
