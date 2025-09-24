@@ -73,12 +73,18 @@ export class EVMAdapter implements IChainAdapter {
 
   async prepareTransfer(request: TransferRequest, quote: TransferQuote): Promise<SignatureData> {
     try {
+      // Get user nonce first
+      const nonce = await this.getNonce(request.from);
+      const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+
       const response = await this.httpClient.post(this.getApiPath('/prepare-signature'), {
         from: request.from,
         to: request.to,
         tokenSymbol: request.token,
         amount: request.amount,
-        relayerFee: quote.relayerFee
+        relayerFee: quote.relayerFee,
+        nonce,
+        deadline
       });
 
       return {
@@ -186,7 +192,12 @@ export class EVMAdapter implements IChainAdapter {
 
   async getNonce(address: string): Promise<string> {
     try {
-      const response = await this.httpClient.get(this.getApiPath(`/nonce/${address}`));
+      const response = await this.httpClient.get('/nonce', {
+        params: {
+          chainName: this.chain,
+          userAddress: address
+        }
+      });
       return response.data.nonce?.toString() || '0';
     } catch (error) {
       throw new SmoothSendError(

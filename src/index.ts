@@ -2,9 +2,9 @@
 export { SmoothSendSDK } from './core/SmoothSendSDK';
 
 // Chain adapters
-export { AvalancheAdapter } from './adapters/avalanche'; // Legacy - maintained for backward compatibility
-export { EVMAdapter } from './adapters/evm'; // Multi-chain EVM adapter
+export { EVMAdapter } from './adapters/evm'; // Multi-chain EVM adapter (includes Avalanche)
 export { AptosAdapter } from './adapters/aptos'; // Multi-chain Aptos adapter
+// Legacy AvalancheAdapter removed - use EVMAdapter for Avalanche chain
 
 // Types
 export * from './types';

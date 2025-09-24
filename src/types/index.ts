@@ -112,7 +112,7 @@ export interface BatchTransferRequest {
 }
 
 // Chain-specific types
-export interface AvalancheTransferData {
+export interface EVMTransferData {
   chainName: string;
   from: string;
   to: string;
@@ -130,6 +130,9 @@ export interface AvalancheTransferData {
     s: string;
   };
 }
+
+// Legacy type alias for backward compatibility
+export type AvalancheTransferData = EVMTransferData;
 
 // Removed AptosTransferData - will be re-added when Aptos relayer is redesigned
 
