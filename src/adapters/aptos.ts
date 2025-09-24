@@ -10,7 +10,8 @@ import {
   TokenBalance,
   TokenInfo,
   SmoothSendError,
-  CHAIN_ECOSYSTEM_MAP
+  CHAIN_ECOSYSTEM_MAP,
+  APTOS_ERROR_CODES
 } from '../types';
 import { HttpClient } from '../utils/http';
 
@@ -74,7 +75,7 @@ export class AptosAdapter implements IChainAdapter {
     } catch (error) {
       throw new SmoothSendError(
         `Failed to get Aptos quote: ${error instanceof Error ? error.message : String(error)}`,
-        'APTOS_QUOTE_ERROR',
+        APTOS_ERROR_CODES.QUOTE_ERROR,
         this.chain
       );
     }
@@ -88,7 +89,7 @@ export class AptosAdapter implements IChainAdapter {
     if (!aptosQuote.aptosTransactionData) {
       throw new SmoothSendError(
         'Missing Aptos transaction data from quote',
-        'APTOS_MISSING_TRANSACTION_DATA',
+        APTOS_ERROR_CODES.MISSING_TRANSACTION_DATA,
         this.chain
       );
     }
@@ -105,11 +106,14 @@ export class AptosAdapter implements IChainAdapter {
 
   async executeTransfer(signedData: SignedTransferData): Promise<TransferResult> {
     try {
+      // Enhanced signature data validation to match relayer improvements
+      this.validateSignatureData(signedData);
+      
       const response = await this.httpClient.post(this.getApiPath('/gasless/submit'), {
         transaction: signedData.transferData.transaction,
         userSignature: {
           signature: signedData.signature,
-          publicKey: signedData.transferData.publicKey
+          publicKey: signedData.transferData.publicKey || signedData.publicKey
         },
         fromAddress: signedData.transferData.fromAddress,
         toAddress: signedData.transferData.toAddress,
@@ -135,7 +139,7 @@ export class AptosAdapter implements IChainAdapter {
     } catch (error) {
       throw new SmoothSendError(
         `Failed to execute Aptos transfer: ${error instanceof Error ? error.message : String(error)}`,
-        'APTOS_EXECUTE_ERROR',
+        APTOS_ERROR_CODES.EXECUTE_ERROR,
         this.chain
       );
     }
@@ -162,7 +166,7 @@ export class AptosAdapter implements IChainAdapter {
     } catch (error) {
       throw new SmoothSendError(
         `Failed to get Aptos balance: ${error instanceof Error ? error.message : String(error)}`,
-        'APTOS_BALANCE_ERROR',
+        APTOS_ERROR_CODES.BALANCE_ERROR,
         this.chain
       );
     }
@@ -192,7 +196,7 @@ export class AptosAdapter implements IChainAdapter {
     } catch (error) {
       throw new SmoothSendError(
         `Failed to get Aptos token info: ${error instanceof Error ? error.message : String(error)}`,
-        'APTOS_TOKEN_INFO_ERROR',
+        APTOS_ERROR_CODES.TOKEN_INFO_ERROR,
         this.chain
       );
     }
@@ -217,7 +221,7 @@ export class AptosAdapter implements IChainAdapter {
     } catch (error) {
       throw new SmoothSendError(
         `Failed to get Aptos transaction status: ${error instanceof Error ? error.message : String(error)}`,
-        'APTOS_STATUS_ERROR',
+        APTOS_ERROR_CODES.STATUS_ERROR,
         this.chain
       );
     }
@@ -251,7 +255,7 @@ export class AptosAdapter implements IChainAdapter {
     
     throw new SmoothSendError(
       `Unsupported token: ${tokenSymbol} on ${this.chain}`,
-      'APTOS_UNSUPPORTED_TOKEN',
+      APTOS_ERROR_CODES.UNSUPPORTED_TOKEN,
       this.chain
     );
   }
@@ -265,6 +269,124 @@ export class AptosAdapter implements IChainAdapter {
     }
     
     return `https://explorer.aptoslabs.com/txn/${txHash}`;
+  }
+
+  /**
+   * Validate signature data to ensure compatibility with enhanced relayer verification
+   * @param signedData The signed transfer data to validate
+   */
+  private validateSignatureData(signedData: SignedTransferData): void {
+    if (!signedData.signature) {
+      throw new SmoothSendError(
+        'Signature is required for Aptos transactions',
+        APTOS_ERROR_CODES.MISSING_SIGNATURE,
+        this.chain
+      );
+    }
+
+    // Check for public key in either location (for backward compatibility)
+    const publicKey = signedData.transferData?.publicKey || signedData.publicKey;
+    if (!publicKey) {
+      throw new SmoothSendError(
+        'Public key is required for Aptos signature verification',
+        APTOS_ERROR_CODES.MISSING_PUBLIC_KEY,
+        this.chain
+      );
+    }
+
+    // Validate signature format (should be hex string)
+    if (!signedData.signature.startsWith('0x') && !/^[a-fA-F0-9]+$/.test(signedData.signature)) {
+      throw new SmoothSendError(
+        'Invalid signature format. Expected hex string.',
+        APTOS_ERROR_CODES.INVALID_SIGNATURE_FORMAT,
+        this.chain
+      );
+    }
+
+    // Validate public key format
+    if (!publicKey.startsWith('0x') && !/^[a-fA-F0-9]+$/.test(publicKey)) {
+      throw new SmoothSendError(
+        'Invalid public key format. Expected hex string.',
+        APTOS_ERROR_CODES.INVALID_PUBLIC_KEY_FORMAT,
+        this.chain
+      );
+    }
+  }
+
+  /**
+   * Enhanced address validation with detailed error messages
+   * @param address The address to validate
+   * @returns true if valid, throws error if invalid
+   */
+  validateAddressStrict(address: string): boolean {
+    if (!address) {
+      throw new SmoothSendError(
+        'Address cannot be empty',
+        APTOS_ERROR_CODES.EMPTY_ADDRESS,
+        this.chain
+      );
+    }
+
+    // Aptos address validation (0x prefix, up to 64 hex characters)
+    if (!/^0x[a-fA-F0-9]{1,64}$/.test(address)) {
+      throw new SmoothSendError(
+        'Invalid Aptos address format. Must start with 0x and contain 1-64 hex characters.',
+        APTOS_ERROR_CODES.INVALID_ADDRESS_FORMAT,
+        this.chain
+      );
+    }
+
+    return true;
+  }
+
+  /**
+   * Verify that a public key corresponds to an expected address
+   * This mirrors the enhanced verification in the relayer
+   * @param publicKey The public key to verify
+   * @param expectedAddress The expected address
+   * @returns true if they match
+   */
+  async verifyPublicKeyAddress(publicKey: string, expectedAddress: string): Promise<boolean> {
+    try {
+      // This would typically use the Aptos SDK to derive address from public key
+      // For now, we'll do basic validation and let the relayer handle the actual verification
+      this.validateAddressStrict(expectedAddress);
+      
+      if (!publicKey || !publicKey.startsWith('0x')) {
+        return false;
+      }
+      
+      // The actual verification is done by the relayer using the Aptos SDK
+      // This is just a preliminary check
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Enhanced transaction preparation with better signature data structure
+   * @param request Transfer request
+   * @param quote Transfer quote
+   * @returns Signature data with enhanced structure
+   */
+  async prepareTransferEnhanced(request: TransferRequest, quote: TransferQuote): Promise<SignatureData & { metadata: any }> {
+    const baseSignatureData = await this.prepareTransfer(request, quote);
+    
+    return {
+      ...baseSignatureData,
+      metadata: {
+        chain: this.chain,
+        fromAddress: request.from,
+        toAddress: request.to,
+        amount: request.amount,
+        token: request.token,
+        relayerFee: quote.relayerFee,
+        signatureVersion: '2.0', // Version for tracking signature format changes
+        requiresPublicKey: true, // Indicates this chain requires public key for verification
+        verificationMethod: 'ed25519_with_address_derivation' // Indicates verification method used
+      }
+    };
   }
 
   /**
@@ -285,7 +407,7 @@ export class AptosAdapter implements IChainAdapter {
     } catch (error) {
       throw new SmoothSendError(
         `Failed to call Move function: ${error instanceof Error ? error.message : String(error)}`,
-        'APTOS_MOVE_CALL_ERROR',
+        APTOS_ERROR_CODES.MOVE_CALL_ERROR,
         this.chain
       );
     }

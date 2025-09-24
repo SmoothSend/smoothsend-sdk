@@ -143,12 +143,30 @@ export interface SignatureData {
   types: any;
   message: any;
   primaryType: string;
+  // Enhanced fields for improved signature verification
+  metadata?: {
+    chain?: SupportedChain;
+    fromAddress?: string;
+    toAddress?: string;
+    amount?: string;
+    token?: string;
+    relayerFee?: string;
+    signatureVersion?: string;
+    requiresPublicKey?: boolean;
+    verificationMethod?: string;
+  };
 }
 
 export interface SignedTransferData {
   transferData: any;
   signature: string;
   signatureType: 'EIP712' | 'Ed25519'; // Support for EVM and Aptos signature types
+  publicKey?: string; // Public key for signature verification (required for Aptos)
+  metadata?: {
+    signatureVersion?: string;
+    verificationMethod?: string;
+    requiresPublicKey?: boolean;
+  };
 }
 
 // Balance and Token Types
@@ -266,12 +284,46 @@ export class SmoothSendError extends Error {
   }
 }
 
+// Enhanced error codes for signature verification
+export const APTOS_ERROR_CODES = {
+  // Signature verification errors
+  MISSING_SIGNATURE: 'APTOS_MISSING_SIGNATURE',
+  MISSING_PUBLIC_KEY: 'APTOS_MISSING_PUBLIC_KEY',
+  INVALID_SIGNATURE_FORMAT: 'APTOS_INVALID_SIGNATURE_FORMAT',
+  INVALID_PUBLIC_KEY_FORMAT: 'APTOS_INVALID_PUBLIC_KEY_FORMAT',
+  ADDRESS_MISMATCH: 'APTOS_ADDRESS_MISMATCH',
+  SIGNATURE_VERIFICATION_FAILED: 'APTOS_SIGNATURE_VERIFICATION_FAILED',
+  
+  // Transaction errors
+  MISSING_TRANSACTION_DATA: 'APTOS_MISSING_TRANSACTION_DATA',
+  INVALID_TRANSACTION_FORMAT: 'APTOS_INVALID_TRANSACTION_FORMAT',
+  
+  // Address validation errors
+  EMPTY_ADDRESS: 'APTOS_EMPTY_ADDRESS',
+  INVALID_ADDRESS_FORMAT: 'APTOS_INVALID_ADDRESS_FORMAT',
+  
+  // General errors
+  QUOTE_ERROR: 'APTOS_QUOTE_ERROR',
+  EXECUTE_ERROR: 'APTOS_EXECUTE_ERROR',
+  BALANCE_ERROR: 'APTOS_BALANCE_ERROR',
+  TOKEN_INFO_ERROR: 'APTOS_TOKEN_INFO_ERROR',
+  STATUS_ERROR: 'APTOS_STATUS_ERROR',
+  MOVE_CALL_ERROR: 'APTOS_MOVE_CALL_ERROR',
+  UNSUPPORTED_TOKEN: 'APTOS_UNSUPPORTED_TOKEN'
+} as const;
+
+export type AptosErrorCode = typeof APTOS_ERROR_CODES[keyof typeof APTOS_ERROR_CODES];
+
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
   error?: string;
   details?: string[];
   requestId?: string;
+  // Enhanced error information
+  errorCode?: string;
+  chain?: SupportedChain;
+  timestamp?: string;
 }
 
 // SDK Configuration
