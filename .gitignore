@@ -39,6 +39,7 @@ aptos-relayer/
 avax-relayer/
 frontend-vite/
 frontend-test/
+smoothsend-test-suite/
 APTOS_REMOVAL_SUMMARY.md
 RELAYER_INTEGRATION_FIXES.md
 
