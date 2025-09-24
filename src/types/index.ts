@@ -1,5 +1,19 @@
-// Core SDK Types - Multi-chain architecture (currently Avalanche only)
-export type SupportedChain = 'avalanche';
+// Core SDK Types - Multi-chain architecture
+export type SupportedChain = 'avalanche' | 'polygon' | 'ethereum' | 'arbitrum' | 'base' | 'aptos-testnet' | 'aptos-mainnet';
+
+// Chain ecosystem types for routing to correct relayers
+export type ChainEcosystem = 'evm' | 'aptos';
+
+// Chain to ecosystem mapping
+export const CHAIN_ECOSYSTEM_MAP: Record<SupportedChain, ChainEcosystem> = {
+  'avalanche': 'evm',
+  'polygon': 'evm', 
+  'ethereum': 'evm',
+  'arbitrum': 'evm',
+  'base': 'evm',
+  'aptos-testnet': 'aptos',
+  'aptos-mainnet': 'aptos'
+};
 
 // OpenAPI-aligned response types
 export interface SuccessResponse {
@@ -263,6 +277,10 @@ export interface SmoothSendConfig {
   customChainConfigs?: Partial<Record<SupportedChain, Partial<ChainConfig>>>;
   useDynamicConfig?: boolean; // Enable fetching config from relayers (default: true)
   configCacheTtl?: number; // Cache TTL in milliseconds (default: 5 minutes)
+  relayerUrls?: {
+    evm?: string; // URL for EVM relayer (handles avalanche, polygon, ethereum, etc.)
+    aptos?: string; // URL for Aptos relayer (handles aptos-testnet, aptos-mainnet)
+  };
 }
 
 // Events

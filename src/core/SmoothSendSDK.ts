@@ -1,6 +1,8 @@
 import {
   SupportedChain,
   ChainConfig,
+  ChainEcosystem,
+  CHAIN_ECOSYSTEM_MAP,
   TransferRequest,
   TransferQuote,
   SignatureData,
@@ -22,8 +24,9 @@ import {
 } from '../types';
 import { getChainConfig, getAllChainConfigs } from '../config/chains';
 import { chainConfigService, DynamicChainConfig } from '../services/chainConfigService';
-import { AvalancheAdapter } from '../adapters/avalanche';
-// Additional adapters will be imported here as they are added
+import { EVMAdapter } from '../adapters/evm';
+import { AptosAdapter } from '../adapters/aptos';
+import { HttpClient } from '../utils/http';
 
 export class SmoothSendSDK {
   private adapters: Map<SupportedChain, IChainAdapter> = new Map();
@@ -38,6 +41,10 @@ export class SmoothSendSDK {
       retries: 3,
       useDynamicConfig: true, // Enable dynamic config by default
       configCacheTtl: 5 * 60 * 1000, // 5 minutes
+      relayerUrls: {
+        evm: 'https://evm-relayer.smoothsend.io',
+        aptos: 'https://aptos-relayer.smoothsend.io'
+      },
       ...config
     };
 
@@ -80,25 +87,20 @@ export class SmoothSendSDK {
   }
 
   private async initializeDynamicAdapters(): Promise<void> {
-    const staticConfigs = getAllChainConfigs(); // Fallback configs
-    
     try {
-      // Fetch dynamic configurations
-      const dynamicConfigs = await chainConfigService.getAllChainConfigs(staticConfigs);
+      // Fetch dynamic configurations from both relayers
+      const supportedChains = await this.fetchSupportedChains();
       
-      // Initialize adapters with dynamic configs
-      for (const [chainKey, dynamicConfig] of Object.entries(dynamicConfigs)) {
-        const chain = chainKey as SupportedChain;
+      // Initialize adapters for all supported chains
+      for (const chain of supportedChains) {
+        const chainConfig = await this.fetchChainConfig(chain);
         const finalConfig = {
-          ...dynamicConfig,
+          ...chainConfig,
           ...this.config.customChainConfigs?.[chain]
         };
 
         this.createAdapter(chain, finalConfig);
       }
-
-      // Ensure we have at least the core supported chains
-      this.ensureCoreChains(staticConfigs);
     } catch (error) {
       console.error('Failed to initialize dynamic adapters:', error);
       throw error;
@@ -106,41 +108,145 @@ export class SmoothSendSDK {
   }
 
   private initializeStaticAdapters(): void {
-    const chainConfigs = getAllChainConfigs();
+    // Initialize all supported chains with static configuration
+    const supportedChains: SupportedChain[] = [
+      'avalanche', 'polygon', 'ethereum', 'arbitrum', 'base',
+      'aptos-testnet', 'aptos-mainnet'
+    ];
     
-    // Initialize Avalanche adapter
-    const avalancheConfig = {
-      ...chainConfigs.avalanche,
-      ...this.config.customChainConfigs?.avalanche
-    };
-    this.createAdapter('avalanche', avalancheConfig);
-
-    // Additional adapters will be initialized here as they are added
+    for (const chain of supportedChains) {
+      try {
+        const config = this.getDefaultChainConfig(chain);
+        const finalConfig = {
+          ...config,
+          ...this.config.customChainConfigs?.[chain]
+        };
+        this.createAdapter(chain, finalConfig);
+      } catch (error) {
+        console.warn(`Failed to initialize ${chain}:`, error);
+      }
+    }
   }
 
   private createAdapter(chain: SupportedChain, config: ChainConfig | DynamicChainConfig): void {
-    switch (chain) {
-      case 'avalanche':
-        this.adapters.set(chain, new AvalancheAdapter(config));
-        break;
-      default:
-        console.warn(`Unknown chain type: ${chain}`);
+    if (!this.config.relayerUrls) {
+      throw new SmoothSendError(
+        'Relayer URLs not configured',
+        'MISSING_RELAYER_URLS'
+      );
+    }
+
+    const ecosystem = CHAIN_ECOSYSTEM_MAP[chain];
+    const relayerUrl = this.config.relayerUrls[ecosystem];
+
+    if (!relayerUrl) {
+      throw new SmoothSendError(
+        `No relayer URL configured for ${ecosystem} ecosystem`,
+        'MISSING_RELAYER_URL',
+        chain
+      );
+    }
+
+    // Route to the appropriate ecosystem-specific adapter
+    if (ecosystem === 'evm') {
+      this.adapters.set(chain, new EVMAdapter(chain, config as ChainConfig, relayerUrl));
+    } else if (ecosystem === 'aptos') {
+      this.adapters.set(chain, new AptosAdapter(chain, config as ChainConfig, relayerUrl));
+    } else {
+      throw new SmoothSendError(
+        `Unsupported ecosystem: ${ecosystem}`,
+        'UNSUPPORTED_ECOSYSTEM',
+        chain
+      );
     }
   }
 
-  private ensureCoreChains(staticConfigs: Record<SupportedChain, ChainConfig>): void {
-    const coreChains: SupportedChain[] = ['avalanche'];
+  /**
+   * Fetch supported chains from both relayers
+   */
+  private async fetchSupportedChains(): Promise<SupportedChain[]> {
+    const chains: SupportedChain[] = [];
     
-    for (const chain of coreChains) {
-      if (!this.adapters.has(chain)) {
-        console.warn(`Missing dynamic config for ${chain}, using static fallback`);
-        const config = {
-          ...staticConfigs[chain],
-          ...this.config.customChainConfigs?.[chain]
-        };
-        this.createAdapter(chain, config);
+    try {
+      // Fetch from EVM relayer
+      if (this.config.relayerUrls?.evm) {
+        const evmClient = new HttpClient(this.config.relayerUrls.evm);
+        const response = await evmClient.get('/chains');
+        // The EVM relayer returns chain names directly
+        chains.push(...(response.data.chains || []) as SupportedChain[]);
       }
+    } catch (error) {
+      console.warn('Failed to fetch EVM chains:', error);
     }
+    
+    try {
+      // Fetch from Aptos relayer
+      if (this.config.relayerUrls?.aptos) {
+        const aptosClient = new HttpClient(this.config.relayerUrls.aptos);
+        const response = await aptosClient.get('/chains');
+        // The Aptos relayer returns chain names directly
+        chains.push(...(response.data.chains || []) as SupportedChain[]);
+      }
+    } catch (error) {
+      console.warn('Failed to fetch Aptos chains:', error);
+    }
+    
+    return chains;
+  }
+
+  /**
+   * Fetch chain configuration from the appropriate relayer
+   */
+  private async fetchChainConfig(chain: SupportedChain): Promise<ChainConfig> {
+    const ecosystem = CHAIN_ECOSYSTEM_MAP[chain];
+    const relayerUrl = this.config.relayerUrls?.[ecosystem];
+    
+    if (!relayerUrl) {
+      throw new Error(`No relayer URL for ${ecosystem} ecosystem`);
+    }
+    
+    const client = new HttpClient(relayerUrl);
+    const response = await client.get(`/${chain}/info`);
+    
+    const info = response.data.info;
+    return {
+      name: info.name,
+      displayName: info.name,
+      chainId: info.chainId,
+      rpcUrl: info.rpcUrl,
+      relayerUrl: relayerUrl,
+      explorerUrl: info.explorerUrl,
+      tokens: Object.keys(info.tokens || {}),
+      nativeCurrency: {
+        name: ecosystem === 'evm' ? 'Ether' : 'APT',
+        symbol: ecosystem === 'evm' ? 'ETH' : 'APT',
+        decimals: ecosystem === 'evm' ? 18 : 8
+      }
+    };
+  }
+
+  /**
+   * Get default configuration for a chain (fallback when dynamic config fails)
+   */
+  private getDefaultChainConfig(chain: SupportedChain): ChainConfig {
+    const ecosystem = CHAIN_ECOSYSTEM_MAP[chain];
+    const relayerUrl = this.config.relayerUrls?.[ecosystem] || '';
+    
+    // Return minimal default configuration
+    return {
+      name: chain,
+      displayName: chain,
+      chainId: 0, // Will be updated dynamically
+      rpcUrl: '',
+      relayerUrl: relayerUrl,
+      explorerUrl: '',
+      tokens: ['USDC'],
+      nativeCurrency: {
+        name: ecosystem === 'evm' ? 'Ether' : 'APT',
+        symbol: ecosystem === 'evm' ? 'ETH' : 'APT',
+        decimals: ecosystem === 'evm' ? 18 : 8
+      }
+    };
   }
 
   /**
@@ -596,6 +702,53 @@ export class SmoothSendSDK {
     }
   }
 
+  // Ecosystem-specific methods for advanced usage
+  
+  /**
+   * Get the EVM adapter for a specific EVM chain
+   * Provides access to EVM-specific features like permit support and gas estimation
+   */
+  public async getEVMAdapter(chain: SupportedChain): Promise<EVMAdapter> {
+    await this.initializeAdapters();
+    
+    if (CHAIN_ECOSYSTEM_MAP[chain] !== 'evm') {
+      throw new SmoothSendError(
+        `Chain '${chain}' is not an EVM chain`,
+        'NOT_EVM_CHAIN',
+        chain
+      );
+    }
+    
+    const adapter = this.getAdapter(chain);
+    return adapter as EVMAdapter;
+  }
+
+  /**
+   * Get the Aptos adapter for a specific Aptos chain
+   * Provides access to Aptos-specific features like gasless wallet transactions and Move functions
+   */
+  public async getAptosAdapter(chain: SupportedChain): Promise<AptosAdapter> {
+    await this.initializeAdapters();
+    
+    if (CHAIN_ECOSYSTEM_MAP[chain] !== 'aptos') {
+      throw new SmoothSendError(
+        `Chain '${chain}' is not an Aptos chain`,
+        'NOT_APTOS_CHAIN',
+        chain
+      );
+    }
+    
+    const adapter = this.getAdapter(chain);
+    return adapter as AptosAdapter;
+  }
+
+  /**
+   * Check if a chain belongs to a specific ecosystem
+   */
+  public getChainEcosystem(chain: SupportedChain): ChainEcosystem {
+    return CHAIN_ECOSYSTEM_MAP[chain];
+  }
+
   // Private helper methods
   private getAdapter(chain: SupportedChain): IChainAdapter {
     const adapter = this.adapters.get(chain);
@@ -611,7 +764,7 @@ export class SmoothSendSDK {
 
   // Static utility methods (for static configs only)
   public static getSupportedChains(): SupportedChain[] {
-    return ['avalanche']; // Multi-chain architecture maintained for future expansion
+    return ['avalanche', 'polygon', 'ethereum', 'arbitrum', 'base', 'aptos-testnet', 'aptos-mainnet'];
   }
 
   public static getChainConfig(chain: SupportedChain): ChainConfig {
