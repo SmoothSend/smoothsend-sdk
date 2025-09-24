@@ -1,6 +1,6 @@
 # SmoothSend SDK
 
-A powerful multi-chain SDK for seamless gasless transaction integration in your dApps. Currently supporting Avalanche with a unified developer experience and dynamic configuration system.
+A powerful multi-chain SDK for seamless gasless transaction integration in your dApps. Currently supporting Avalanche and Aptos with a unified developer experience and dynamic configuration system.
 
 [![npm version](https://badge.fury.io/js/@smoothsend/sdk.svg)](https://www.npmjs.com/package/@smoothsend/sdk)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
@@ -8,7 +8,7 @@ A powerful multi-chain SDK for seamless gasless transaction integration in your 
 
 ## 🚀 Features
 
-- **Multi-Chain Ready**: Currently supporting Avalanche, with architecture ready for additional chains
+- **Multi-Chain Ready**: Currently supporting Avalanche and Aptos, with architecture ready for additional chains
 - **Gasless Transactions**: Users pay fees in tokens, not native gas
 - **Dynamic Configuration**: Chain configurations fetched dynamically from relayers
 - **Type-Safe**: Full TypeScript support with comprehensive type definitions
@@ -23,6 +23,15 @@ A powerful multi-chain SDK for seamless gasless transaction integration in your 
 ```bash
 npm install @smoothsend/sdk
 ```
+
+## ⚠️ Important Security Update
+
+**For Aptos transactions**, the SDK now uses a **secure serialized transaction approach** that requires proper wallet integration. The transaction flow differs from EVM chains:
+
+- **Aptos**: Requires transaction serialization using Aptos SDK
+- **EVM (Avalanche)**: Uses EIP-712 typed data signing
+
+See the [Chain-Specific Examples](#-chain-specific-examples) section for proper implementation.
 
 ## 🏁 Quick Start
 
@@ -58,6 +67,7 @@ try {
 | Chain | Network | Status | Features |
 |-------|---------|--------|----------|
 | Avalanche | Fuji Testnet | ✅ Active | EIP-712 signatures, Batch transfers, Dynamic config |
+| Aptos | Testnet | ✅ Active | Ed25519 signatures, Gasless transactions, Secure serialization |
 
 ## 📚 API Reference
 
@@ -240,6 +250,71 @@ const result = await smoothSend.transfer({
 console.log('Transfer successful:', result.txHash);
 console.log('Explorer URL:', result.explorerUrl);
 ```
+
+### Aptos (Ed25519 with Secure Serialization)
+
+```typescript
+import { SmoothSendSDK } from '@smoothsend/sdk';
+import { Account, Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
+
+// Initialize SDK
+const smoothSend = new SmoothSendSDK();
+
+// Connect to Aptos wallet (e.g., Petra)
+// Note: This requires proper wallet integration that provides serialized transactions
+const aptosWallet = window.aptos; // Petra wallet
+await aptosWallet.connect();
+
+// Get user address
+const userAddress = await aptosWallet.account();
+
+// Step 1: Get quote
+const quote = await smoothSend.getQuote({
+  from: userAddress.address,
+  to: '0x742d35cc6634c0532925a3b8d2d2d2d2d2d2d2d3',
+  token: 'USDC',
+  amount: '1000000', // 1 USDC (6 decimals)
+  chain: 'aptos-testnet'
+});
+
+// Step 2: Prepare transaction for signing
+const signatureData = await smoothSend.prepareTransfer({
+  from: userAddress.address,
+  to: '0x742d35cc6634c0532925a3b8d2d2d2d2d2d2d2d3',
+  token: 'USDC',
+  amount: '1000000',
+  chain: 'aptos-testnet'
+}, quote);
+
+// Step 3: Sign transaction with wallet
+// IMPORTANT: Wallet must return serialized transaction bytes
+const signedTransaction = await aptosWallet.signTransaction(signatureData.message);
+
+// Ensure wallet provides required serialization
+if (!signedTransaction.transactionBytes || !signedTransaction.authenticatorBytes) {
+  throw new Error('Wallet must provide serialized transactionBytes and authenticatorBytes');
+}
+
+// Step 4: Execute transfer with serialized data
+const result = await smoothSend.executeTransfer({
+  signature: 'serialized', // Signature embedded in authenticatorBytes
+  transferData: {
+    transactionBytes: signedTransaction.transactionBytes,
+    authenticatorBytes: signedTransaction.authenticatorBytes,
+    functionName: 'smoothsend_transfer'
+  }
+}, 'aptos-testnet');
+
+console.log('Aptos transfer successful:', result.txHash);
+console.log('Explorer URL:', result.explorerUrl);
+console.log('Gas paid by:', result.gasFeePaidBy); // 'relayer'
+```
+
+**Important Notes for Aptos Integration:**
+- Wallet must support transaction serialization
+- SDK expects `transactionBytes` and `authenticatorBytes` as number arrays
+- Relayer pays all gas fees (true gasless experience)
+- User only pays USDC fees to relayer
 
 ## 🔧 Configuration
 

@@ -105,6 +105,12 @@ export interface TransferResult {
   gasFeePaidBy?: string;
   userPaidAPT?: boolean;
   transparency?: string;
+  // New fields from enhanced Aptos relayer response
+  vmStatus?: string;
+  sender?: string;
+  chain?: string;
+  relayerFee?: string;
+  message?: string;
 }
 
 export interface BatchTransferRequest {
@@ -135,7 +141,17 @@ export interface EVMTransferData {
 // Legacy type alias for backward compatibility
 export type AvalancheTransferData = EVMTransferData;
 
-// Removed AptosTransferData - will be re-added when Aptos relayer is redesigned
+// Aptos Transfer Data - Updated for secure serialized transaction approach
+export interface AptosTransferData {
+  transactionBytes: number[]; // Serialized SimpleTransaction as byte array
+  authenticatorBytes: number[]; // Serialized AccountAuthenticator as byte array
+  functionName?: string; // Optional function name for debugging/tracking
+  // Additional metadata for compatibility
+  fromAddress?: string;
+  toAddress?: string;
+  amount?: string;
+  coinType?: string;
+}
 
 // Signature Types
 export interface SignatureData {

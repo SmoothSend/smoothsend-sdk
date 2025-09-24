@@ -404,17 +404,30 @@ export class SmoothSendSDK {
       };
       signatureType = 'EIP712';
     } else if (ecosystem === 'aptos') {
-      // Aptos signing - signer should handle the transaction signing
-      signature = await signer.signTransaction(signatureData.message);
+      // Aptos signing - requires transaction serialization for secure relayer
+      const signedTransaction = await signer.signTransaction(signatureData.message);
+      
+      // CRITICAL: Serialize the transaction and authenticator for the secure relayer endpoint
+      // This matches the new secure relayer format that expects byte arrays
+      if (!signedTransaction.transactionBytes || !signedTransaction.authenticatorBytes) {
+        throw new SmoothSendError(
+          'Aptos signer must return serialized transactionBytes and authenticatorBytes',
+          'APTOS_SERIALIZATION_ERROR',
+          request.chain
+        );
+      }
       
       transferData = {
+        transactionBytes: signedTransaction.transactionBytes,
+        authenticatorBytes: signedTransaction.authenticatorBytes,
+        functionName: signedTransaction.functionName || 'smoothsend_transfer',
+        // Metadata for compatibility
         fromAddress: request.from,
         toAddress: request.to,
         amount: request.amount,
-        coinType: quote.contractAddress,
-        relayerFee: quote.relayerFee,
-        publicKey: await signer.publicKey()
+        coinType: quote.contractAddress
       };
+      signature = 'serialized'; // Signature is embedded in authenticatorBytes
       signatureType = 'Ed25519';
     } else {
       throw new SmoothSendError(

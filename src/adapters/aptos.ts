@@ -95,31 +95,31 @@ export class AptosAdapter implements IChainAdapter {
     }
 
     // Return the transaction data that needs to be signed
-    // This is different from EVM's EIP-712 typed data
+    // NOTE: After signing, you must serialize the transaction and authenticator
+    // using the Aptos SDK and provide them as transactionBytes and authenticatorBytes
     return {
       domain: null, // Aptos doesn't use domain separation like EVM
       types: null,
       message: aptosQuote.aptosTransactionData,
-      primaryType: 'AptosTransaction'
+      primaryType: 'AptosTransaction',
+      // Add metadata to help with serialization - using any type for flexibility
+      metadata: {
+        requiresSerialization: true,
+        serializationInstructions: 'After signing, serialize the SimpleTransaction and AccountAuthenticator using Aptos SDK',
+        expectedFormat: 'transactionBytes and authenticatorBytes as number arrays'
+      } as any
     };
   }
 
   async executeTransfer(signedData: SignedTransferData): Promise<TransferResult> {
     try {
-      // Enhanced signature data validation to match relayer improvements
-      this.validateSignatureData(signedData);
+      // Validate that we have the required serialized transaction data
+      this.validateSerializedTransactionData(signedData);
       
       const response = await this.httpClient.post(this.getApiPath('/gasless/submit'), {
-        transaction: signedData.transferData.transaction,
-        userSignature: {
-          signature: signedData.signature,
-          publicKey: signedData.transferData.publicKey || signedData.publicKey
-        },
-        fromAddress: signedData.transferData.fromAddress,
-        toAddress: signedData.transferData.toAddress,
-        amount: signedData.transferData.amount,
-        coinType: signedData.transferData.coinType,
-        relayerFee: signedData.transferData.relayerFee
+        transactionBytes: signedData.transferData.transactionBytes,
+        authenticatorBytes: signedData.transferData.authenticatorBytes,
+        functionName: signedData.transferData.functionName || 'smoothsend_transfer'
       });
 
       if (!response.success) {
@@ -129,12 +129,20 @@ export class AptosAdapter implements IChainAdapter {
       const transferData = response.data;
       return {
         success: transferData.success || true,
-        txHash: transferData.hash,
-        transferId: transferData.transactionId,
-        explorerUrl: this.buildAptosExplorerUrl(transferData.hash),
-        // Aptos-specific fields
-        gasFeePaidBy: 'relayer',
-        userPaidAPT: false
+        // Use standardized field names (txHash, transferId)
+        txHash: transferData.txHash || transferData.hash, // Support both formats
+        transferId: transferData.transferId || transferData.transactionId, // Support both formats
+        explorerUrl: this.buildAptosExplorerUrl(transferData.txHash || transferData.hash),
+        // Standard fields
+        gasUsed: transferData.gasUsed,
+        // Aptos-specific fields from enhanced response format
+        gasFeePaidBy: transferData.gasFeePaidBy || 'relayer',
+        userPaidAPT: transferData.userPaidAPT || false,
+        vmStatus: transferData.vmStatus,
+        sender: transferData.sender,
+        chain: transferData.chain,
+        relayerFee: transferData.relayerFee,
+        message: transferData.message
       };
     } catch (error) {
       throw new SmoothSendError(
@@ -272,41 +280,41 @@ export class AptosAdapter implements IChainAdapter {
   }
 
   /**
-   * Validate signature data to ensure compatibility with enhanced relayer verification
+   * Validate serialized transaction data for the new safe endpoint
    * @param signedData The signed transfer data to validate
    */
-  private validateSignatureData(signedData: SignedTransferData): void {
-    if (!signedData.signature) {
+  private validateSerializedTransactionData(signedData: SignedTransferData): void {
+    if (!signedData.transferData?.transactionBytes) {
       throw new SmoothSendError(
-        'Signature is required for Aptos transactions',
+        'Serialized transaction bytes are required for Aptos transactions',
+        APTOS_ERROR_CODES.MISSING_TRANSACTION_DATA,
+        this.chain
+      );
+    }
+
+    if (!signedData.transferData?.authenticatorBytes) {
+      throw new SmoothSendError(
+        'Serialized authenticator bytes are required for Aptos transactions',
         APTOS_ERROR_CODES.MISSING_SIGNATURE,
         this.chain
       );
     }
 
-    // Check for public key in either location (for backward compatibility)
-    const publicKey = signedData.transferData?.publicKey || signedData.publicKey;
-    if (!publicKey) {
+    // Validate that transaction bytes is an array of numbers (0-255)
+    if (!Array.isArray(signedData.transferData.transactionBytes) || 
+        !signedData.transferData.transactionBytes.every((b: any) => typeof b === 'number' && b >= 0 && b <= 255)) {
       throw new SmoothSendError(
-        'Public key is required for Aptos signature verification',
-        APTOS_ERROR_CODES.MISSING_PUBLIC_KEY,
-        this.chain
-      );
-    }
-
-    // Validate signature format (should be hex string)
-    if (!signedData.signature.startsWith('0x') && !/^[a-fA-F0-9]+$/.test(signedData.signature)) {
-      throw new SmoothSendError(
-        'Invalid signature format. Expected hex string.',
+        'Invalid transaction bytes format. Expected array of numbers 0-255.',
         APTOS_ERROR_CODES.INVALID_SIGNATURE_FORMAT,
         this.chain
       );
     }
 
-    // Validate public key format
-    if (!publicKey.startsWith('0x') && !/^[a-fA-F0-9]+$/.test(publicKey)) {
+    // Validate that authenticator bytes is an array of numbers (0-255)
+    if (!Array.isArray(signedData.transferData.authenticatorBytes) || 
+        !signedData.transferData.authenticatorBytes.every((b: any) => typeof b === 'number' && b >= 0 && b <= 255)) {
       throw new SmoothSendError(
-        'Invalid public key format. Expected hex string.',
+        'Invalid authenticator bytes format. Expected array of numbers 0-255.',
         APTOS_ERROR_CODES.INVALID_PUBLIC_KEY_FORMAT,
         this.chain
       );

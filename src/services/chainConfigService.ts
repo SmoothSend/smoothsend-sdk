@@ -195,6 +195,8 @@ export class ChainConfigService {
     switch (chain) {
       case 'avalanche':
         return chainName.includes('avalanche') || chainName.includes('fuji') || chainName.includes('avax');
+      case 'aptos-testnet':
+        return chainName.includes('aptos') && chainName.includes('testnet');
       default:
         return false;
     }
@@ -209,6 +211,10 @@ export class ChainConfigService {
     
     if (name.includes('avalanche') || name.includes('fuji') || name.includes('avax')) {
       return 'avalanche';
+    }
+    
+    if (name.includes('aptos') && name.includes('testnet')) {
+      return 'aptos-testnet';
     }
     
     // Additional chain matching logic will be added here as new chains are supported
@@ -239,6 +245,14 @@ export class ChainConfigService {
       };
     }
     
+    if (name.includes('aptos')) {
+      return {
+        name: 'Aptos',
+        symbol: 'APT',
+        decimals: 8
+      };
+    }
+    
     // Additional native currency mappings will be added here as new chains are supported
     
     return {
@@ -252,6 +266,8 @@ export class ChainConfigService {
     switch (chain) {
       case 'avalanche':
         return ['USDC'];
+      case 'aptos-testnet':
+        return ['USDC', 'APT'];
       default:
         return [];
     }
