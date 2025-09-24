@@ -56,15 +56,20 @@ export class AptosAdapter implements IChainAdapter {
         coinType: this.getAptosTokenAddress(request.token)
       });
 
-      const quote = response.data.quote;
+      if (!response.success) {
+        throw new Error(response.error || 'Unknown error occurred');
+      }
+
+      const responseData = response.data;
+      const quote = responseData.quote;
       return {
         amount: request.amount,
         relayerFee: quote.relayerFee,
         total: (BigInt(request.amount) + BigInt(quote.relayerFee)).toString(),
         feePercentage: 0, // Aptos uses different fee structure
-        contractAddress: response.data.transactionData.function.split('::')[0],
+        contractAddress: responseData.transactionData.function.split('::')[0],
         // Store Aptos-specific data for later use
-        aptosTransactionData: response.data.transactionData
+        aptosTransactionData: responseData.transactionData
       };
     } catch (error) {
       throw new SmoothSendError(
@@ -113,11 +118,16 @@ export class AptosAdapter implements IChainAdapter {
         relayerFee: signedData.transferData.relayerFee
       });
 
+      if (!response.success) {
+        throw new Error(response.error || 'Unknown error occurred');
+      }
+
+      const transferData = response.data;
       return {
-        success: response.data.success || true,
-        txHash: response.data.hash,
-        transferId: response.data.transactionId,
-        explorerUrl: this.buildAptosExplorerUrl(response.data.hash),
+        success: transferData.success || true,
+        txHash: transferData.hash,
+        transferId: transferData.transactionId,
+        explorerUrl: this.buildAptosExplorerUrl(transferData.hash),
         // Aptos-specific fields
         gasFeePaidBy: 'relayer',
         userPaidAPT: false
@@ -135,12 +145,19 @@ export class AptosAdapter implements IChainAdapter {
     try {
       const response = await this.httpClient.get(this.getApiPath(`/balance/${address}`));
       
+      // Handle both successful and error responses from HttpClient
+      if (!response.success) {
+        throw new Error(response.error || 'Unknown error occurred');
+      }
+
+      const balanceData = response.data;
+      
       return [{
         token: token || 'USDC',
-        balance: response.data.balance?.toString() || '0',
-        decimals: response.data.decimals || 6,
-        symbol: response.data.symbol || token || 'USDC',
-        name: response.data.name
+        balance: balanceData?.balance?.toString() || '0',
+        decimals: balanceData?.decimals || 6,
+        symbol: balanceData?.symbol || token || 'USDC',
+        name: balanceData?.name
       }];
     } catch (error) {
       throw new SmoothSendError(
@@ -154,6 +171,11 @@ export class AptosAdapter implements IChainAdapter {
   async getTokenInfo(token: string): Promise<TokenInfo> {
     try {
       const response = await this.httpClient.get(this.getApiPath('/tokens'));
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Unknown error occurred');
+      }
+
       const tokens = response.data.tokens || {};
       const tokenInfo = tokens[token.toUpperCase()];
       
@@ -186,6 +208,11 @@ export class AptosAdapter implements IChainAdapter {
   async getTransactionStatus(txHash: string): Promise<any> {
     try {
       const response = await this.httpClient.get(this.getApiPath(`/status/${txHash}`));
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Unknown error occurred');
+      }
+
       return response.data;
     } catch (error) {
       throw new SmoothSendError(
@@ -248,6 +275,11 @@ export class AptosAdapter implements IChainAdapter {
         function: functionName,
         arguments: args
       });
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Unknown error occurred');
+      }
+
       return response.data;
     } catch (error) {
       throw new SmoothSendError(

@@ -55,12 +55,17 @@ export class EVMAdapter implements IChainAdapter {
         amount: request.amount
       });
 
+      if (!response.success) {
+        throw new Error(response.error || 'Unknown error occurred');
+      }
+
+      const quoteData = response.data;
       return {
         amount: request.amount,
-        relayerFee: response.data.relayerFee,
-        total: (BigInt(request.amount) + BigInt(response.data.relayerFee)).toString(),
-        feePercentage: response.data.feePercentage || 0,
-        contractAddress: response.data.contractAddress || this.config.relayerUrl
+        relayerFee: quoteData.relayerFee,
+        total: (BigInt(request.amount) + BigInt(quoteData.relayerFee)).toString(),
+        feePercentage: quoteData.feePercentage || 0,
+        contractAddress: quoteData.contractAddress || this.config.relayerUrl
       };
     } catch (error) {
       throw new SmoothSendError(
@@ -87,11 +92,16 @@ export class EVMAdapter implements IChainAdapter {
         deadline
       });
 
+      if (!response.success) {
+        throw new Error(response.error || 'Unknown error occurred');
+      }
+
+      const signatureData = response.data;
       return {
-        domain: response.data.typedData.domain,
-        types: response.data.typedData.types,
-        message: response.data.typedData.message,
-        primaryType: response.data.typedData.primaryType
+        domain: signatureData.typedData.domain,
+        types: signatureData.typedData.types,
+        message: signatureData.typedData.message,
+        primaryType: signatureData.typedData.primaryType
       };
     } catch (error) {
       throw new SmoothSendError(
@@ -106,15 +116,20 @@ export class EVMAdapter implements IChainAdapter {
     try {
       const response = await this.httpClient.post(this.getApiPath('/transfer'), signedData.transferData);
 
+      if (!response.success) {
+        throw new Error(response.error || 'Unknown error occurred');
+      }
+
+      const transferData = response.data;
       return {
-        success: response.data.success || true,
-        txHash: response.data.txHash,
-        blockNumber: response.data.blockNumber,
-        gasUsed: response.data.gasUsed,
-        transferId: response.data.transferId,
-        explorerUrl: response.data.explorerUrl,
-        fee: response.data.fee,
-        executionTime: response.data.executionTime
+        success: transferData.success || true,
+        txHash: transferData.txHash,
+        blockNumber: transferData.blockNumber,
+        gasUsed: transferData.gasUsed,
+        transferId: transferData.transferId,
+        explorerUrl: transferData.explorerUrl,
+        fee: transferData.fee,
+        executionTime: transferData.executionTime
       };
     } catch (error) {
       throw new SmoothSendError(
@@ -135,6 +150,10 @@ export class EVMAdapter implements IChainAdapter {
         transfers: signedTransfers.map(transfer => transfer.transferData)
       });
 
+      if (!response.success) {
+        throw new Error(response.error || 'Unknown error occurred');
+      }
+
       return response.data.results || [];
     } catch (error) {
       throw new SmoothSendError(
@@ -149,12 +168,19 @@ export class EVMAdapter implements IChainAdapter {
     try {
       const response = await this.httpClient.get(this.getApiPath(`/balance/${address}`));
       
+      // Handle both successful and error responses from HttpClient
+      if (!response.success) {
+        throw new Error(response.error || 'Unknown error occurred');
+      }
+
+      const balanceData = response.data;
+      
       return [{
         token: token || 'USDC',
-        balance: response.data.balance?.toString() || '0',
-        decimals: response.data.decimals || 6,
-        symbol: response.data.symbol || token || 'USDC',
-        name: response.data.name
+        balance: balanceData?.balance?.toString() || '0',
+        decimals: balanceData?.decimals || 6,
+        symbol: balanceData?.symbol || token || 'USDC',
+        name: balanceData?.name
       }];
     } catch (error) {
       throw new SmoothSendError(
@@ -168,6 +194,11 @@ export class EVMAdapter implements IChainAdapter {
   async getTokenInfo(token: string): Promise<TokenInfo> {
     try {
       const response = await this.httpClient.get(this.getApiPath('/tokens'));
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Unknown error occurred');
+      }
+
       const tokens = response.data.tokens || {};
       const tokenInfo = tokens[token.toUpperCase()];
       
@@ -198,6 +229,11 @@ export class EVMAdapter implements IChainAdapter {
           userAddress: address
         }
       });
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Unknown error occurred');
+      }
+
       return response.data.nonce?.toString() || '0';
     } catch (error) {
       throw new SmoothSendError(
@@ -211,6 +247,11 @@ export class EVMAdapter implements IChainAdapter {
   async getTransactionStatus(txHash: string): Promise<any> {
     try {
       const response = await this.httpClient.get(this.getApiPath(`/status/${txHash}`));
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Unknown error occurred');
+      }
+
       return response.data;
     } catch (error) {
       throw new SmoothSendError(
@@ -243,6 +284,11 @@ export class EVMAdapter implements IChainAdapter {
       const response = await this.httpClient.post(this.getApiPath('/estimate-gas'), {
         transfers
       });
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Unknown error occurred');
+      }
+
       return response.data;
     } catch (error) {
       throw new SmoothSendError(
@@ -259,6 +305,11 @@ export class EVMAdapter implements IChainAdapter {
   async supportsPermit(tokenAddress: string): Promise<boolean> {
     try {
       const response = await this.httpClient.get(this.getApiPath(`/permit-support/${tokenAddress}`));
+      
+      if (!response.success) {
+        return false; // If endpoint fails, assume no permit support
+      }
+
       return response.data.supportsPermit || false;
     } catch (error) {
       // If endpoint doesn't exist, assume no permit support
