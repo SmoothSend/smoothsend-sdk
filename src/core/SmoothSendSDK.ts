@@ -42,8 +42,8 @@ export class SmoothSendSDK {
       useDynamicConfig: true, // Enable dynamic config by default
       configCacheTtl: 5 * 60 * 1000, // 5 minutes
       relayerUrls: {
-        evm: 'https://evm-relayer.smoothsend.io',
-        aptos: 'https://aptos-relayer.smoothsend.io'
+        evm: 'https://smoothsendevm.onrender.com',
+        aptos: 'https://smoothsendrelayerworking.onrender.com/api/v1/relayer'
       },
       ...config
     };
@@ -110,8 +110,7 @@ export class SmoothSendSDK {
   private initializeStaticAdapters(): void {
     // Initialize all supported chains with static configuration
     const supportedChains: SupportedChain[] = [
-      'avalanche', 'polygon', 'ethereum', 'arbitrum', 'base',
-      'aptos-testnet', 'aptos-mainnet'
+      'avalanche', 'aptos-testnet'
     ];
     
     for (const chain of supportedChains) {
@@ -764,7 +763,7 @@ export class SmoothSendSDK {
 
   // Static utility methods (for static configs only)
   public static getSupportedChains(): SupportedChain[] {
-    return ['avalanche', 'polygon', 'ethereum', 'arbitrum', 'base', 'aptos-testnet', 'aptos-mainnet'];
+    return ['avalanche', 'aptos-testnet'];
   }
 
   public static getChainConfig(chain: SupportedChain): ChainConfig {

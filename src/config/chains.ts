@@ -16,8 +16,21 @@ export const CHAIN_CONFIGS: Record<SupportedChain, ChainConfig> = {
       symbol: 'AVAX',
       decimals: 18
     }
+  },
+  'aptos-testnet': {
+    name: 'aptos-testnet',
+    displayName: 'Aptos Testnet',
+    chainId: 2, // Aptos testnet chain ID
+    rpcUrl: 'https://fullnode.testnet.aptoslabs.com/v1',
+    relayerUrl: 'https://smoothsendrelayerworking.onrender.com/api/v1/relayer/',
+    explorerUrl: 'https://explorer.aptoslabs.com',
+    tokens: ['USDC', 'APT'],
+    nativeCurrency: {
+      name: 'Aptos',
+      symbol: 'APT',
+      decimals: 8
+    }
   }
-  // Additional chains will be added here as relayers become available
 };
 
 export function getChainConfig(chain: SupportedChain): ChainConfig {
@@ -32,8 +45,8 @@ export function getAllChainConfigs(): Record<SupportedChain, ChainConfig> {
 // Keep minimal fallbacks for offline scenarios
 export const TOKEN_DECIMALS: Record<string, number> = {
   'USDC': 6,
-  'USDT': 6,
-  'AVAX': 18
+  'AVAX': 18,
+  'APT': 8
   // Additional token decimals will be added as new chains are supported
 };
 

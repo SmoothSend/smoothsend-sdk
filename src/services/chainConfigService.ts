@@ -102,9 +102,10 @@ export class ChainConfigService {
   async getAllChainConfigs(fallbackConfigs?: Record<SupportedChain, ChainConfig>): Promise<Record<string, DynamicChainConfig>> {
     const configs: Record<string, DynamicChainConfig> = {};
     
-    // Currently only Avalanche relayer - architecture ready for additional relayers
+    // Currently supports Avalanche and Aptos relayers - architecture ready for additional relayers
     const relayerUrls = [
-      'https://smoothsendevm.onrender.com'      // Avalanche relayer
+      'https://smoothsendevm.onrender.com',     // Avalanche relayer
+      'https://smoothsendrelayerworking.onrender.com/api/v1/relayer'     // Aptos relayer
       // Additional relayer URLs will be added here as they become available
     ];
 
@@ -175,10 +176,12 @@ export class ChainConfigService {
       return fallbackConfig.relayerUrl;
     }
 
-    // Default relayer URLs - currently only Avalanche
+    // Default relayer URLs
     switch (chain) {
       case 'avalanche':
         return 'https://smoothsendevm.onrender.com';
+      case 'aptos-testnet':
+        return 'https://smoothsendrelayerworking.onrender.com/api/v1/relayer';
       default:
         // For unknown chains, try Avalanche relayer (EVM-compatible chains may work)
         console.warn(`Unknown chain ${chain}, defaulting to Avalanche relayer`);

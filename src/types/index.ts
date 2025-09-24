@@ -1,5 +1,5 @@
 // Core SDK Types - Multi-chain architecture
-export type SupportedChain = 'avalanche' | 'polygon' | 'ethereum' | 'arbitrum' | 'base' | 'aptos-testnet' | 'aptos-mainnet';
+export type SupportedChain = 'avalanche' | 'aptos-testnet';
 
 // Chain ecosystem types for routing to correct relayers
 export type ChainEcosystem = 'evm' | 'aptos';
@@ -7,12 +7,7 @@ export type ChainEcosystem = 'evm' | 'aptos';
 // Chain to ecosystem mapping
 export const CHAIN_ECOSYSTEM_MAP: Record<SupportedChain, ChainEcosystem> = {
   'avalanche': 'evm',
-  'polygon': 'evm', 
-  'ethereum': 'evm',
-  'arbitrum': 'evm',
-  'base': 'evm',
-  'aptos-testnet': 'aptos',
-  'aptos-mainnet': 'aptos'
+  'aptos-testnet': 'aptos'
 };
 
 // OpenAPI-aligned response types
@@ -83,6 +78,8 @@ export interface TransferQuote {
   total: string;
   feePercentage: number;
   contractAddress: string;
+  // Aptos-specific fields (optional for backward compatibility)
+  aptosTransactionData?: any;
 }
 
 export interface RelayTransferResponse extends SuccessResponse {
@@ -104,6 +101,10 @@ export interface TransferResult {
   explorerUrl?: string;
   fee?: string;
   executionTime?: number;
+  // Aptos-specific fields (optional)
+  gasFeePaidBy?: string;
+  userPaidAPT?: boolean;
+  transparency?: string;
 }
 
 export interface BatchTransferRequest {

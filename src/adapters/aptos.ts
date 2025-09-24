@@ -270,8 +270,6 @@ export class AptosAdapter implements IChainAdapter {
     if (tokenSymbol.toUpperCase() === 'USDC') {
       if (this.chain === 'aptos-testnet') {
         return '0x3c27315fb69ba6e4b960f1507d1cefcc9a4247869f26a8d59d6b7869d23782c::test_coins::USDC';
-      } else if (this.chain === 'aptos-mainnet') {
-        return '0x...::usdc_coin::USDC'; // This would be the actual mainnet address
       }
     }
     
@@ -288,8 +286,6 @@ export class AptosAdapter implements IChainAdapter {
   private buildAptosExplorerUrl(txHash: string): string {
     if (this.chain === 'aptos-testnet') {
       return `https://explorer.aptoslabs.com/txn/${txHash}?network=testnet`;
-    } else if (this.chain === 'aptos-mainnet') {
-      return `https://explorer.aptoslabs.com/txn/${txHash}?network=mainnet`;
     }
     
     return `https://explorer.aptoslabs.com/txn/${txHash}`;
