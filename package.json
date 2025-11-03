@@ -1,6 +1,6 @@
 {
   "name": "@smoothsend/sdk",
-  "version": "1.0.0-beta.14",
+  "version": "2.0.0",
   "description": "Multi-chain gasless transaction SDK for seamless dApp integration",
   "type": "module",
   "main": "dist/index.js",
@@ -44,9 +44,7 @@
   },
   "homepage": "https://home.smoothsend.xyz",
   "dependencies": {
-    "@smoothsend/sdk": "^1.0.0-beta.10",
-    "axios": "^1.6.0",
-    "ethers": "^6.0.0"
+    "axios": "^1.6.0"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.7",
@@ -62,9 +60,6 @@
     "rollup-plugin-dts": "^6.1.0",
     "ts-jest": "^29.1.1",
     "typescript": "^5.2.2"
-  },
-  "peerDependencies": {
-    "ethers": "^6.0.0"
   },
   "engines": {
     "node": ">=16.0.0"

@@ -1,31 +1,55 @@
+/**
+ * SmoothSend SDK v2.0
+ * 
+ * Multi-chain gasless transaction SDK for seamless dApp integration
+ * 
+ * @remarks
+ * The SDK provides a simple interface for executing gasless token transfers
+ * across multiple blockchain networks. All requests route through the proxy
+ * worker at proxy.smoothsend.xyz with API key authentication.
+ * 
+ * @packageDocumentation
+ * 
+ * @example
+ * Basic usage:
+ * ```typescript
+ * import { SmoothSendSDK } from '@smoothsend/sdk';
+ * 
+ * const sdk = new SmoothSendSDK({
+ *   apiKey: 'no_gas_abc123...',
+ *   network: 'testnet'
+ * });
+ * 
+ * const result = await sdk.transfer({
+ *   from: '0x123...',
+ *   to: '0x456...',
+ *   token: 'USDC',
+ *   amount: '1000000',
+ *   chain: 'aptos-testnet'
+ * }, wallet);
+ * 
+ * console.log('Transaction:', result.txHash);
+ * ```
+ */
+
 // Main SDK export
 export { SmoothSendSDK } from './core/SmoothSendSDK';
 
 // Chain adapters
-export { EVMAdapter } from './adapters/evm'; // Multi-chain EVM adapter (includes Avalanche)
 export { AptosAdapter } from './adapters/aptos'; // Multi-chain Aptos adapter
-// Legacy AvalancheAdapter removed - use EVMAdapter for Avalanche chain
+// Note: EVM adapter will be implemented in future phase
 
-// Types
+// Types - Export all types from types/index.ts
 export * from './types';
-
-// Configuration
-export { 
-  getChainConfig, 
-  getAllChainConfigs, 
-  CHAIN_CONFIGS,
-  TOKEN_DECIMALS,
-  getTokenDecimals
-} from './config/chains';
-
-// Services
-export { chainConfigService, ChainConfigService, DynamicChainConfig } from './services/chainConfigService';
 
 // Utilities
 export { HttpClient } from './utils/http';
 
-// Version
-export const VERSION = '2.0.0-beta.1';
+/**
+ * SDK version
+ * @public
+ */
+export const VERSION = '2.0.0';
 
 // Default export
 export { SmoothSendSDK as default } from './core/SmoothSendSDK';
