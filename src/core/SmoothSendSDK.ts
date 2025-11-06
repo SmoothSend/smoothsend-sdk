@@ -20,6 +20,8 @@ export class SmoothSendSDK {
   private adapters: Map<SupportedChain, IChainAdapter> = new Map();
   private eventListeners: EventListener[] = [];
   private config: SmoothSendConfig;
+  private keyType: 'public' | 'secret' | 'legacy';
+  private hasWarnedAboutSecretKey: boolean = false;
 
   constructor(config: SmoothSendConfig) {
     // Validate API key is provided
@@ -30,13 +32,11 @@ export class SmoothSendSDK {
       );
     }
 
-    // Validate API key format (must start with no_gas_)
-    if (!config.apiKey.startsWith('no_gas_')) {
-      throw new SmoothSendError(
-        'Invalid API key format. API key must start with "no_gas_"',
-        'INVALID_API_KEY_FORMAT'
-      );
-    }
+    // Detect and validate API key type
+    this.keyType = this.detectKeyType(config.apiKey);
+
+    // Warn if secret key is used in browser environment
+    this.warnIfSecretKeyInBrowser();
 
     // Validate network parameter if provided
     if (config.network && config.network !== 'testnet' && config.network !== 'mainnet') {
@@ -54,6 +54,62 @@ export class SmoothSendSDK {
       retries: config.retries || 3,
       customHeaders: config.customHeaders || {}
     };
+  }
+
+  /**
+   * Detect key type from API key prefix
+   * Supports pk_nogas_* (public), sk_nogas_* (secret), and no_gas_* (legacy)
+   */
+  private detectKeyType(apiKey: string): 'public' | 'secret' | 'legacy' {
+    if (apiKey.startsWith('pk_nogas_')) {
+      return 'public';
+    }
+    if (apiKey.startsWith('sk_nogas_')) {
+      return 'secret';
+    }
+    if (apiKey.startsWith('no_gas_')) {
+      return 'legacy';
+    }
+    throw new SmoothSendError(
+      'Invalid API key format. API key must start with "pk_nogas_", "sk_nogas_", or "no_gas_"',
+      'INVALID_API_KEY_FORMAT'
+    );
+  }
+
+  /**
+   * Check if running in browser environment
+   * Used for conditional warnings and Origin header logic
+   */
+  private isBrowserEnvironment(): boolean {
+    return typeof window !== 'undefined' && typeof window.document !== 'undefined';
+  }
+
+  /**
+   * Warn if secret key is used in browser environment
+   * Only warns once per SDK instance
+   */
+  private warnIfSecretKeyInBrowser(): void {
+    if (this.hasWarnedAboutSecretKey) {
+      return;
+    }
+
+    if (this.keyType === 'secret' && this.isBrowserEnvironment()) {
+      console.warn(
+        '⚠️ WARNING: Secret key detected in browser environment.\n' +
+        'Secret keys (sk_nogas_*) should only be used in server-side code.\n' +
+        'Use public keys (pk_nogas_*) for frontend applications.\n' +
+        'Learn more: https://docs.smoothsend.xyz/security/api-keys'
+      );
+      this.hasWarnedAboutSecretKey = true;
+    }
+  }
+
+  /**
+   * Determine if Origin header should be included in requests
+   * Include Origin header only for public keys in browser environment
+   */
+  private shouldIncludeOrigin(): boolean {
+    return this.keyType === 'public' && this.isBrowserEnvironment();
   }
 
   /**
@@ -88,7 +144,8 @@ export class SmoothSendSDK {
           chain,
           minimalConfig,
           this.config.apiKey,
-          this.config.network || 'testnet'
+          this.config.network || 'testnet',
+          this.shouldIncludeOrigin()
         );
       } else if (ecosystem === 'evm') {
         // EVM adapter will be implemented in future phase
@@ -350,7 +407,8 @@ export class SmoothSendSDK {
       apiKey: this.config.apiKey,
       network: this.config.network || 'testnet',
       timeout: this.config.timeout,
-      retries: this.config.retries
+      retries: this.config.retries,
+      includeOrigin: this.shouldIncludeOrigin()
     });
 
     try {
@@ -428,7 +486,8 @@ export class SmoothSendSDK {
       apiKey: this.config.apiKey,
       network: this.config.network || 'testnet',
       timeout: this.config.timeout,
-      retries: this.config.retries
+      retries: this.config.retries,
+      includeOrigin: this.shouldIncludeOrigin()
     });
 
     try {

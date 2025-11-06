@@ -15,6 +15,7 @@ export interface HttpClientConfig {
   timeout?: number;
   retries?: number;
   customHeaders?: Record<string, string>;
+  includeOrigin?: boolean;
 }
 
 /**
@@ -28,6 +29,7 @@ export class HttpClient {
   private maxRetries: number;
   private baseURL: string;
   private isProxyMode: boolean;
+  private includeOrigin: boolean;
 
   /**
    * Constructor supports both old (baseURL, timeout) and new (config object) patterns
@@ -41,6 +43,7 @@ export class HttpClient {
       this.network = 'testnet';
       this.maxRetries = 3;
       this.isProxyMode = false;
+      this.includeOrigin = false;
       
       this.client = axios.create({
         baseURL: this.baseURL,
@@ -57,16 +60,24 @@ export class HttpClient {
       this.maxRetries = config.retries || 3;
       this.baseURL = 'https://proxy.smoothsend.xyz';
       this.isProxyMode = true;
+      this.includeOrigin = config.includeOrigin || false;
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.apiKey}`,
+        'X-Network': this.network,
+        ...config.customHeaders,
+      };
+
+      // Add Origin header if in browser and includeOrigin is true
+      if (this.includeOrigin && typeof window !== 'undefined' && window.location) {
+        headers['Origin'] = window.location.origin;
+      }
 
       this.client = axios.create({
         baseURL: this.baseURL,
         timeout: config.timeout || 30000,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-          'X-Network': this.network,
-          ...config.customHeaders,
-        },
+        headers,
       });
     }
 

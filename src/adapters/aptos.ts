@@ -35,7 +35,8 @@ export class AptosAdapter implements IChainAdapter {
     chain: SupportedChain,
     config: ChainConfig,
     apiKey: string,
-    network: 'testnet' | 'mainnet' = 'testnet'
+    network: 'testnet' | 'mainnet' = 'testnet',
+    includeOrigin: boolean = false
   ) {
     // Validate this is an Aptos chain
     if (CHAIN_ECOSYSTEM_MAP[chain] !== 'aptos') {
@@ -57,7 +58,8 @@ export class AptosAdapter implements IChainAdapter {
       apiKey: this.apiKey,
       network: this.network,
       timeout: 30000,
-      retries: 3
+      retries: 3,
+      includeOrigin
     });
   }
 

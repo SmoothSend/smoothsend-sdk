@@ -33,13 +33,46 @@ npm install @smoothsend/sdk
 
 See the [Chain-Specific Examples](#-chain-specific-examples) section for proper implementation.
 
+## 🔑 Authentication
+
+SmoothSend uses API keys for authentication. There are two types of keys:
+
+### Public Keys (`pk_nogas_*`)
+- **Safe for frontend applications** - Can be embedded in client-side code
+- **CORS-protected** - Only work from configured domains
+- **Use in**: React apps, Vue apps, browser extensions, mobile apps
+
+### Secret Keys (`sk_nogas_*`)
+- **Server-side only** - Must never be exposed in client-side code
+- **No CORS restrictions** - Work from any server environment
+- **Use in**: Node.js backends, serverless functions, API servers
+
+### Getting Your API Keys
+
+1. Sign up at [dashboard.smoothsend.xyz](https://dashboard.smoothsend.xyz)
+2. Create a project
+3. Generate an API key pair - you'll receive both a public and secret key
+4. Configure CORS origins for your public key
+
+### Security Best Practices
+
+⚠️ **Never commit secret keys to version control**
+⚠️ **Never expose secret keys in client-side code**
+✅ **Use public keys for frontend applications**
+✅ **Use secret keys for backend services**
+✅ **Configure CORS origins for production domains**
+
 ## 🏁 Quick Start
+
+### Frontend Example (Public Key)
 
 ```typescript
 import { SmoothSendSDK } from '@smoothsend/sdk';
 
-// Initialize the SDK
+// Initialize with public key (safe for frontend)
 const smoothSend = new SmoothSendSDK({
+  apiKey: 'pk_nogas_your_public_key_here',
+  network: 'testnet',
   timeout: 30000,
   retries: 3
 });
@@ -50,7 +83,7 @@ const transferRequest = {
   to: '0x742d35cc6634c0532925a3b8d2d2d2d2d2d2d2d3',
   token: 'USDC',
   amount: '1000000', // 1 USDC (6 decimals)
-  chain: 'avalanche' as const
+  chain: 'aptos-testnet' as const
 };
 
 // Execute transfer (with wallet signer)
@@ -60,6 +93,30 @@ try {
 } catch (error) {
   console.error('Transfer failed:', error.message);
 }
+```
+
+### Backend Example (Secret Key)
+
+```typescript
+import { SmoothSendSDK } from '@smoothsend/sdk';
+
+// Initialize with secret key (server-side only)
+const smoothSend = new SmoothSendSDK({
+  apiKey: 'sk_nogas_your_secret_key_here',
+  network: 'mainnet',
+  timeout: 30000,
+  retries: 3
+});
+
+// Execute transfer from backend
+const result = await smoothSend.executeGaslessTransfer({
+  transactionBytes: signedTx.transactionBytes,
+  authenticatorBytes: signedTx.authenticatorBytes,
+  chain: 'aptos-mainnet',
+  network: 'mainnet'
+});
+
+console.log('Transfer successful:', result.txHash);
 ```
 
 ## 🔧 Supported Chains

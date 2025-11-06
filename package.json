@@ -18,6 +18,9 @@
     "lint:fix": "eslint src --ext .ts --fix",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build",
+    "example:authentication": "ts-node examples/authentication.ts",
+    "example:health-status": "ts-node examples/health-and-status.ts",
+    "example:usage-tracking": "ts-node examples/usage-tracking.ts",
     "example:token-sender": "cd examples/token-sender && npm run dev",
     "example:nft-marketplace": "cd examples/nft-marketplace && npm run dev"
   },
