@@ -5,6 +5,7 @@ import {
   createErrorFromResponse,
   createNetworkError
 } from '../types';
+import { USAGE_HEADERS } from '../shared-constants';
 
 /**
  * Configuration for HTTP client
@@ -102,24 +103,28 @@ export class HttpClient {
 
   /**
    * Extract usage metadata from response headers (proxy mode only)
+   * Uses USAGE_HEADERS constants for consistency across systems
    */
   private extractMetadata(response: AxiosResponse): UsageMetadata | undefined {
     if (!this.isProxyMode) {
       return undefined;
     }
 
+    // Convert header names to lowercase for case-insensitive lookup
+    const headers = response.headers;
+    
     return {
       rateLimit: {
-        limit: response.headers['x-rate-limit-limit'] || '0',
-        remaining: response.headers['x-rate-limit-remaining'] || '0',
-        reset: response.headers['x-rate-limit-reset'] || '',
+        limit: headers[USAGE_HEADERS.RATE_LIMIT.toLowerCase()] || '0',
+        remaining: headers[USAGE_HEADERS.RATE_REMAINING.toLowerCase()] || '0',
+        reset: headers[USAGE_HEADERS.RATE_RESET.toLowerCase()] || '',
       },
       monthly: {
-        limit: response.headers['x-monthly-limit'] || '0',
-        usage: response.headers['x-monthly-usage'] || '0',
-        remaining: response.headers['x-monthly-remaining'] || '0',
+        limit: headers[USAGE_HEADERS.MONTHLY_LIMIT.toLowerCase()] || '0',
+        usage: headers[USAGE_HEADERS.MONTHLY_USAGE.toLowerCase()] || '0',
+        remaining: headers[USAGE_HEADERS.MONTHLY_REMAINING.toLowerCase()] || '0',
       },
-      requestId: response.headers['x-request-id'] || '',
+      requestId: headers[USAGE_HEADERS.REQUEST_ID.toLowerCase()] || '',
     };
   }
 
