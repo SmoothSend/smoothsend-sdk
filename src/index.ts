@@ -35,6 +35,14 @@
 // Main SDK export
 export { SmoothSendSDK } from './core/SmoothSendSDK';
 
+// Wallet Adapter Integration (EASIEST WAY TO INTEGRATE!)
+export { 
+  SmoothSendTransactionSubmitter, 
+  createSmoothSendSubmitter,
+  type SmoothSendTransactionSubmitterConfig,
+  type TransactionSubmitter,
+} from './wallet-adapter';
+
 // Chain adapters
 export { AptosAdapter } from './adapters/aptos'; // Multi-chain Aptos adapter
 // Note: EVM adapter will be implemented in future phase
@@ -49,7 +57,7 @@ export { HttpClient } from './utils/http';
  * SDK version
  * @public
  */
-export const VERSION = '2.0.0';
+export const VERSION = '2.1.0'; // Updated for wallet adapter support
 
 // Default export
 export { SmoothSendSDK as default } from './core/SmoothSendSDK';

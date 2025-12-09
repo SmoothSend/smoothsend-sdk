@@ -10,6 +10,7 @@ A powerful multi-chain SDK for seamless gasless transaction integration in your 
 
 - **Multi-Chain Ready**: Currently supporting Avalanche and Aptos, with architecture ready for additional chains
 - **Gasless Transactions**: Users pay fees in tokens, not native gas
+- **Wallet Adapter Integration**: Just 3 lines of code to enable gasless transactions!
 - **Dynamic Configuration**: Chain configurations fetched dynamically from relayers
 - **Type-Safe**: Full TypeScript support with comprehensive type definitions
 - **Event System**: Real-time transaction status updates
@@ -23,6 +24,59 @@ A powerful multi-chain SDK for seamless gasless transaction integration in your 
 ```bash
 npm install @smoothsend/sdk
 ```
+
+## ⚡ Quick Start - Wallet Adapter (EASIEST - 3 Lines!)
+
+The easiest way to integrate SmoothSend is using the Wallet Adapter integration. Just add 3 lines of code and ALL your transactions become gasless automatically!
+
+```typescript
+import { SmoothSendTransactionSubmitter } from '@smoothsend/sdk';
+import { AptosWalletAdapterProvider } from '@aptos-labs/wallet-adapter-react';
+import { Network } from '@aptos-labs/ts-sdk';
+
+// 1. Create the transaction submitter (one line!)
+const transactionSubmitter = new SmoothSendTransactionSubmitter({
+  apiKey: 'pk_nogas_your_api_key_here',
+  network: 'testnet'
+});
+
+// 2. Add to your wallet provider
+function App() {
+  return (
+    <AptosWalletAdapterProvider
+      dappConfig={{
+        network: Network.TESTNET,
+        transactionSubmitter: transactionSubmitter  // <-- That's it!
+      }}
+    >
+      <YourApp />
+    </AptosWalletAdapterProvider>
+  );
+}
+
+// 3. Use normal wallet functions - they're now gasless!
+function TransferButton() {
+  const { signAndSubmitTransaction } = useWallet();
+  
+  const handleTransfer = async () => {
+    // This is now gasless! No code changes needed!
+    const result = await signAndSubmitTransaction({
+      data: {
+        function: "0x1::coin::transfer",
+        typeArguments: ["0x1::aptos_coin::AptosCoin"],
+        functionArguments: [recipientAddress, amount],
+      }
+    });
+    console.log('Gasless transaction:', result.hash);
+  };
+  
+  return <button onClick={handleTransfer}>Send (Gasless!)</button>;
+}
+```
+
+**That's it!** All transactions in your app are now gasless. Users don't need APT for gas fees!
+
+---
 
 ## ⚠️ Important Security Update
 
@@ -62,7 +116,9 @@ SmoothSend uses API keys for authentication. There are two types of keys:
 ✅ **Use secret keys for backend services**
 ✅ **Configure CORS origins for production domains**
 
-## 🏁 Quick Start
+## 🏁 Classic SDK Usage
+
+If you prefer more control over the transaction flow, you can use the classic SDK approach:
 
 ### Frontend Example (Public Key)
 
