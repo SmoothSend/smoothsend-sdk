@@ -27,47 +27,15 @@
  * ```
  */
 
-/**
- * Minimal type definitions for Aptos SDK compatibility
- * These match the @aptos-labs/ts-sdk types without requiring it as a dependency
- */
+import type {
+  AptosConfig,
+  PendingTransactionResponse,
+  AnyRawTransaction,
+  AccountAuthenticator,
+} from '@aptos-labs/ts-sdk';
 
-/** Represents an Aptos configuration object */
-export interface AptosConfig {
-  network?: string;
-  fullnode?: string;
-  [key: string]: unknown;
-}
-
-/** Represents a pending transaction response */
-export interface PendingTransactionResponse {
-  hash: string;
-  sender: string;
-  sequence_number: string;
-  max_gas_amount: string;
-  gas_unit_price: string;
-  expiration_timestamp_secs: string;
-  payload: unknown;
-  signature?: unknown;
-  type?: string;
-}
-
-/** Represents a serializable transaction */
-export interface SerializableTransaction {
-  bcsToBytes(): Uint8Array;
-  rawTransaction?: {
-    sender?: { toString(): string };
-    sequence_number?: { toString(): string };
-    max_gas_amount?: { toString(): string };
-    gas_unit_price?: { toString(): string };
-    expiration_timestamp_secs?: { toString(): string };
-  };
-}
-
-/** Represents an account authenticator */
-export interface SerializableAuthenticator {
-  bcsToBytes(): Uint8Array;
-}
+// Re-export types for convenience
+export type { AptosConfig, PendingTransactionResponse, AnyRawTransaction, AccountAuthenticator };
 
 /**
  * Configuration options for SmoothSendTransactionSubmitter
@@ -120,17 +88,17 @@ interface RelayerResponse {
 }
 
 /**
- * TransactionSubmitter interface compatible with @aptos-labs/ts-sdk
+ * TransactionSubmitter interface compatible with @aptos-labs/ts-sdk v2.x
  * This interface allows the SmoothSendTransactionSubmitter to work as a drop-in
  * replacement for the default transaction submitter in the Aptos Wallet Adapter.
  */
 export interface TransactionSubmitter {
   submitTransaction(args: {
     aptosConfig: AptosConfig;
-    transaction: SerializableTransaction;
-    senderAuthenticator: SerializableAuthenticator;
-    feePayerAuthenticator?: SerializableAuthenticator;
-    additionalSignersAuthenticators?: Array<SerializableAuthenticator>;
+    transaction: AnyRawTransaction;
+    senderAuthenticator: AccountAuthenticator;
+    feePayerAuthenticator?: AccountAuthenticator;
+    additionalSignersAuthenticators?: Array<AccountAuthenticator>;
     pluginParams?: Record<string, unknown>;
   }): Promise<PendingTransactionResponse>;
 }
@@ -155,9 +123,9 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
     }
 
     // Validate API key format
-    if (!config.apiKey.startsWith('pk_nogas_') && 
-        !config.apiKey.startsWith('sk_nogas_') && 
-        !config.apiKey.startsWith('no_gas_')) {
+    if (!config.apiKey.startsWith('pk_nogas_') &&
+      !config.apiKey.startsWith('sk_nogas_') &&
+      !config.apiKey.startsWith('no_gas_')) {
       throw new Error('Invalid API key format. Key must start with pk_nogas_, sk_nogas_, or no_gas_');
     }
 
@@ -186,10 +154,10 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
    */
   async submitTransaction(args: {
     aptosConfig: AptosConfig;
-    transaction: SerializableTransaction;
-    senderAuthenticator: SerializableAuthenticator;
-    feePayerAuthenticator?: SerializableAuthenticator;
-    additionalSignersAuthenticators?: Array<SerializableAuthenticator>;
+    transaction: AnyRawTransaction;
+    senderAuthenticator: AccountAuthenticator;
+    feePayerAuthenticator?: AccountAuthenticator;
+    additionalSignersAuthenticators?: Array<AccountAuthenticator>;
     pluginParams?: Record<string, unknown>;
   }): Promise<PendingTransactionResponse> {
     const { transaction, senderAuthenticator, pluginParams } = args;
@@ -215,7 +183,7 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
       };
 
       // Make request to SmoothSend gateway
-      const response = await this.makeRequest('/aptos/gasless-transaction', payload);
+      const response = await this.makeRequest('/api/v1/relayer/gasless-transaction', payload);
 
       if (!response.success || !response.txnHash) {
         throw new Error(response.error || response.details || 'Transaction submission failed');
@@ -253,7 +221,7 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
    */
   private async makeRequest(endpoint: string, payload: Record<string, unknown>): Promise<RelayerResponse> {
     const url = `${this.gatewayUrl}${endpoint}`;
-    
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-API-Key': this.apiKey,
@@ -286,7 +254,7 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
       return await response.json();
     } catch (error: any) {
       clearTimeout(timeoutId);
-      
+
       if (error.name === 'AbortError') {
         throw new Error('Request timed out');
       }

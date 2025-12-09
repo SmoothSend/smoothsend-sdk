@@ -24,6 +24,6 @@ export {
   type TransactionSubmitter,
   type AptosConfig,
   type PendingTransactionResponse,
-  type SerializableTransaction,
-  type SerializableAuthenticator,
+  type AnyRawTransaction,
+  type AccountAuthenticator,
 } from './SmoothSendTransactionSubmitter';

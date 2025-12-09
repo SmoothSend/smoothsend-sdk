@@ -46,3 +46,6 @@ RELAYER_INTEGRATION_FIXES.md
 # Temporary files
 .tmp/
 temp/
+
+# tarball
+smoothsend-sdk-1.0.0.tgz

@@ -36,12 +36,26 @@
 export { SmoothSendSDK } from './core/SmoothSendSDK';
 
 // Wallet Adapter Integration (EASIEST WAY TO INTEGRATE!)
+// Use this for: testnet (free), mainnet with paid tier, ANY transaction type
 export { 
   SmoothSendTransactionSubmitter, 
   createSmoothSendSubmitter,
   type SmoothSendTransactionSubmitterConfig,
   type TransactionSubmitter,
 } from './wallet-adapter';
+
+// Script Composer Integration (For fee-in-token transfers)
+// Use this for: mainnet with free tier, token transfers with fee deducted from token
+export {
+  ScriptComposerClient,
+  createScriptComposerClient,
+  type ScriptComposerConfig,
+  type BuildTransferParams,
+  type BuildTransferResult,
+  type SubmitSignedTransactionParams,
+  type SubmitTransactionResult,
+  type FeeEstimateResult,
+} from './script-composer';
 
 // Chain adapters
 export { AptosAdapter } from './adapters/aptos'; // Multi-chain Aptos adapter
