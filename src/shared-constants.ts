@@ -30,27 +30,35 @@ export const KEY_TYPES = {
 } as const;
 
 /**
- * Tier Limits Configuration
- * Defines rate limits and monthly limits for each subscription tier
+ * Rate Limits Configuration
+ * 
+ * BUSINESS MODEL (Updated Jan 2026):
+ * - SmoothSend uses CREDIT-BASED billing
+ * - Users purchase credit packs ($5, $10, $25, $50, $100, $500)
+ * - Each transaction deducts credits: MAX(gas × 1.50, $0.01)
+ * 
+ * Rate limits below are for API protection only (prevent abuse):
+ * - All users start with 'free' rate limit
+ * - Higher rate limits available for high-volume customers
  * 
  * CRITICAL: Must match across worker, console, and SDK
  */
 export const TIER_LIMITS = {
   free: { 
-    rateLimit: 10,        // requests per minute
-    monthlyLimit: 1000    // total requests per month
+    rateLimit: 100,           // requests per minute (generous for most dApps)
+    monthlyLimit: 999999999   // Unlimited - billing is credit-based
   },
   starter: { 
-    rateLimit: 50, 
-    monthlyLimit: 50000 
+    rateLimit: 200,           // Higher rate limit for bigger dApps
+    monthlyLimit: 999999999
   },
   pro: { 
-    rateLimit: 100, 
-    monthlyLimit: 500000 
+    rateLimit: 500, 
+    monthlyLimit: 999999999
   },
   enterprise: { 
-    rateLimit: 1000, 
-    monthlyLimit: 999999999  // Effectively unlimited
+    rateLimit: 2000,          // Custom high-volume rate limit
+    monthlyLimit: 999999999
   }
 } as const;
 

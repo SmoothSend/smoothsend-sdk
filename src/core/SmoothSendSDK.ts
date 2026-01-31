@@ -12,9 +12,12 @@ import {
   IChainAdapter,
   HealthResponse,
   FeeEstimate,
-  UsageMetadata
+  UsageMetadata,
+  AptosWallet,
+  StellarWallet,
 } from '../types';
 import { AptosAdapter } from '../adapters/aptos';
+import { StellarAdapter } from '../adapters/stellar';
 
 export class SmoothSendSDK {
   private adapters: Map<SupportedChain, IChainAdapter> = new Map();
@@ -147,8 +150,25 @@ export class SmoothSendSDK {
           this.config.network || 'testnet',
           this.shouldIncludeOrigin()
         );
+      } else if (ecosystem === 'stellar') {
+        const minimalConfig = {
+          name: chain,
+          displayName: chain,
+          chainId: 0,
+          rpcUrl: '',
+          relayerUrl: 'https://proxy.smoothsend.xyz',
+          explorerUrl: '',
+          tokens: [],
+          nativeCurrency: { name: 'XLM', symbol: 'XLM', decimals: 7 },
+        };
+        adapter = new StellarAdapter(
+          chain,
+          minimalConfig,
+          this.config.apiKey,
+          this.config.network || 'testnet',
+          this.shouldIncludeOrigin()
+        );
       } else if (ecosystem === 'evm') {
-        // EVM adapter will be implemented in future phase
         throw new SmoothSendError(
           `EVM chains not yet supported in v2. Chain: ${chain}`,
           'UNSUPPORTED_CHAIN'
@@ -215,6 +235,24 @@ export class SmoothSendSDK {
     }
   }
 
+  /**
+   * Submit a signed Stellar transaction (XDR) for gasless relay.
+   * Use when you've already built and signed the transaction.
+   *
+   * @example
+   * const signedXdr = await stellarWallet.signTransaction(tx);
+   * const result = await sdk.submitStellarTransaction(signedXdr);
+   */
+  public async submitStellarTransaction(signedXdr: string): Promise<TransferResult> {
+    const chain: SupportedChain =
+      this.config.network === 'mainnet' ? 'stellar-mainnet' : 'stellar-testnet';
+    return this.executeGaslessTransfer({
+      signedTransaction: signedXdr,
+      chain,
+      network: this.config.network,
+    });
+  }
+
   public async executeGaslessTransfer(signedData: SignedTransferData): Promise<TransferResult> {
     const adapter = this.getOrCreateAdapter(signedData.chain);
 
@@ -249,81 +287,98 @@ export class SmoothSendSDK {
 
   /**
    * Convenience method for complete transfer flow
-   * Combines estimateFee and executeGaslessTransfer into a single call
-   * 
+   * Works for both Aptos and Stellar - same 3-line API.
+   *
    * @param request Transfer request with from, to, token, amount, chain
-   * @param wallet Wallet instance that can build and sign transactions
+   * @param wallet Aptos or Stellar wallet provider
    * @returns Transfer result with transaction hash and usage metadata
-   * 
-   * Note: The wallet parameter should have methods:
-   * - buildTransaction(params): Build transaction from parameters
-   * - signTransaction(transaction): Sign and serialize transaction
-   * 
-   * The wallet's signTransaction should return an object with:
-   * - transactionBytes: number[] - Serialized transaction
-   * - authenticatorBytes: number[] - Serialized authenticator
+   *
+   * Aptos wallet: signTransaction returns { transactionBytes, authenticatorBytes }
+   * Stellar wallet: signTransaction returns string (signed XDR)
    */
   async transfer(
     request: TransferRequest,
-    wallet: {
-      buildTransaction: (params: any) => Promise<any>;
-      signTransaction: (transaction: any) => Promise<{
-        transactionBytes: number[];
-        authenticatorBytes: number[];
-      }>;
-    }
+    wallet: AptosWallet | StellarWallet
   ): Promise<TransferResult> {
     this.emitEvent({
       type: 'transfer_initiated',
       data: { request },
       timestamp: Date.now(),
-      chain: request.chain
+      chain: request.chain,
     });
 
     try {
-      // Step 1: Get fee estimate
-      const feeEstimate = await this.estimateFee(request);
+      const ecosystem = CHAIN_ECOSYSTEM_MAP[request.chain];
 
-      // Step 2: Build transaction with wallet
-      const transaction = await wallet.buildTransaction({
+      if (ecosystem === 'stellar') {
+        return this.transferStellar(request, wallet as StellarWallet);
+      }
+
+      // Aptos flow
+      const aptosWallet = wallet as AptosWallet;
+      const feeEstimate = await this.estimateFee(request);
+      const transaction = await aptosWallet.buildTransaction({
         sender: request.from,
         recipient: request.to,
         amount: request.amount,
         coinType: feeEstimate.coinType,
-        relayerFee: feeEstimate.relayerFee
+        relayerFee: feeEstimate.relayerFee,
       });
 
       this.emitEvent({
         type: 'transfer_signed',
         data: { transaction },
         timestamp: Date.now(),
-        chain: request.chain
+        chain: request.chain,
       });
 
-      // Step 3: Sign and serialize transaction with wallet
-      const signedTx = await wallet.signTransaction(transaction);
+      const signedTx = await aptosWallet.signTransaction(transaction);
 
-      // Step 4: Execute gasless transfer
-      const result = await this.executeGaslessTransfer({
+      return this.executeGaslessTransfer({
         transactionBytes: signedTx.transactionBytes,
         authenticatorBytes: signedTx.authenticatorBytes,
         chain: request.chain,
-        network: this.config.network
+        network: this.config.network,
       });
-
-      return result;
     } catch (error) {
       this.emitEvent({
         type: 'transfer_failed',
-        data: { 
+        data: {
           error: error instanceof Error ? error.message : String(error),
-          step: 'transfer'
+          step: 'transfer',
         },
         timestamp: Date.now(),
-        chain: request.chain
+        chain: request.chain,
       });
       throw error;
     }
+  }
+
+  private async transferStellar(
+    request: TransferRequest,
+    wallet: StellarWallet
+  ): Promise<TransferResult> {
+    const transaction = await wallet.buildTransaction({
+      from: request.from,
+      to: request.to,
+      amount: request.amount,
+      token: request.token,
+    });
+
+    this.emitEvent({
+      type: 'transfer_signed',
+      data: { transaction },
+      timestamp: Date.now(),
+      chain: request.chain,
+    });
+
+    const signedXdr = await wallet.signTransaction(transaction);
+
+    return this.executeGaslessTransfer({
+      signedTransaction: signedXdr,
+      chain: request.chain,
+      network: this.config.network,
+    });
   }
 
   // Note: Batch transfer support will be implemented in a future phase
@@ -454,8 +509,7 @@ export class SmoothSendSDK {
    * ```
    */
   public getSupportedChains(): SupportedChain[] {
-    // Return statically supported chains for v2
-    return ['aptos-testnet', 'aptos-mainnet'];
+    return ['aptos-testnet', 'aptos-mainnet', 'stellar-testnet', 'stellar-mainnet'];
   }
 
   /**
@@ -715,7 +769,7 @@ export class SmoothSendSDK {
    * ```
    */
   public static getSupportedChains(): SupportedChain[] {
-    return ['aptos-testnet', 'aptos-mainnet'];
+    return ['aptos-testnet', 'aptos-mainnet', 'stellar-testnet', 'stellar-mainnet'];
   }
 }
 

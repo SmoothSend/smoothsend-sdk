@@ -117,7 +117,7 @@ describe('SmoothSendSDK', () => {
       expect(chains.length).toBeGreaterThan(0);
     });
 
-    it('should include aptos chains', () => {
+    it('should include aptos and stellar chains', () => {
       const sdk = new SmoothSendSDK({
         apiKey: 'pk_nogas_test123',
         network: 'testnet',
@@ -125,6 +125,8 @@ describe('SmoothSendSDK', () => {
       const chains = sdk.getSupportedChains();
       expect(chains).toContain('aptos-testnet');
       expect(chains).toContain('aptos-mainnet');
+      expect(chains).toContain('stellar-testnet');
+      expect(chains).toContain('stellar-mainnet');
     });
   });
 
@@ -144,6 +146,11 @@ describe('SmoothSendSDK', () => {
 
     it('should return true for aptos-mainnet', () => {
       expect(sdk.isChainSupported('aptos-mainnet')).toBe(true);
+    });
+
+    it('should return true for stellar chains', () => {
+      expect(sdk.isChainSupported('stellar-testnet')).toBe(true);
+      expect(sdk.isChainSupported('stellar-mainnet')).toBe(true);
     });
 
     it('should return false for unsupported chains', () => {

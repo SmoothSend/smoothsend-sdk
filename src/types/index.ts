@@ -17,7 +17,7 @@ export {
  * - `aptos-testnet`: Aptos testnet
  * - `aptos-mainnet`: Aptos mainnet
  */
-export type SupportedChain = 'avalanche' | 'aptos-testnet' | 'aptos-mainnet';
+export type SupportedChain = 'avalanche' | 'aptos-testnet' | 'aptos-mainnet' | 'stellar-testnet' | 'stellar-mainnet';
 
 /**
  * Chain ecosystem types for routing to correct relayers
@@ -25,8 +25,9 @@ export type SupportedChain = 'avalanche' | 'aptos-testnet' | 'aptos-mainnet';
  * @remarks
  * - `evm`: Ethereum Virtual Machine compatible chains (Avalanche, Base, Arbitrum, etc.)
  * - `aptos`: Aptos blockchain ecosystem
+ * - `stellar`: Stellar blockchain ecosystem
  */
-export type ChainEcosystem = 'evm' | 'aptos';
+export type ChainEcosystem = 'evm' | 'aptos' | 'stellar';
 
 /**
  * Mapping of supported chains to their respective ecosystems
@@ -35,7 +36,9 @@ export type ChainEcosystem = 'evm' | 'aptos';
 export const CHAIN_ECOSYSTEM_MAP: Record<SupportedChain, ChainEcosystem> = {
   'avalanche': 'evm',
   'aptos-testnet': 'aptos',
-  'aptos-mainnet': 'aptos'
+  'aptos-mainnet': 'aptos',
+  'stellar-testnet': 'stellar',
+  'stellar-mainnet': 'stellar',
 };
 
 /**
@@ -436,9 +439,11 @@ export interface SignatureData {
  */
 export interface SignedTransferData {
   /** Serialized transaction (Aptos) */
-  transactionBytes: number[];
+  transactionBytes?: number[];
   /** Serialized authenticator (Aptos) */
-  authenticatorBytes: number[];
+  authenticatorBytes?: number[];
+  /** Signed XDR transaction (Stellar) */
+  signedTransaction?: string;
   /** Target blockchain */
   chain: SupportedChain;
   /** Optional network override (testnet or mainnet) */
@@ -717,6 +722,17 @@ export const APTOS_ERROR_CODES = {
 export type AptosErrorCode = typeof APTOS_ERROR_CODES[keyof typeof APTOS_ERROR_CODES];
 
 /**
+ * Stellar adapter error codes
+ */
+export const STELLAR_ERROR_CODES = {
+  MISSING_SIGNED_TRANSACTION: 'STELLAR_MISSING_SIGNED_TRANSACTION',
+  GASLESS_TRANSACTION_ERROR: 'STELLAR_GASLESS_TRANSACTION_ERROR',
+  STATUS_ERROR: 'STELLAR_STATUS_ERROR',
+  HEALTH_ERROR: 'STELLAR_HEALTH_ERROR',
+  INVALID_ADDRESS_FORMAT: 'STELLAR_INVALID_ADDRESS_FORMAT',
+} as const;
+
+/**
  * Generic API response structure
  * Used for all API responses with optional data payload
  * 
@@ -821,6 +837,37 @@ export interface UsageMetadata {
   };
   /** Unique request identifier for debugging */
   requestId: string;
+}
+
+/**
+ * Aptos wallet interface for sdk.transfer()
+ */
+export interface AptosWallet {
+  buildTransaction: (params: {
+    sender: string;
+    recipient: string;
+    amount: string;
+    coinType: string;
+    relayerFee: string;
+  }) => Promise<any>;
+  signTransaction: (transaction: any) => Promise<{
+    transactionBytes: number[];
+    authenticatorBytes: number[];
+  }>;
+}
+
+/**
+ * Stellar wallet interface for sdk.transfer()
+ * Use with Freighter, Stellar Wallets Kit, or any Stellar-compatible wallet
+ */
+export interface StellarWallet {
+  buildTransaction: (params: {
+    from: string;
+    to: string;
+    amount: string;
+    token: string;
+  }) => Promise<any>;
+  signTransaction: (transaction: any) => Promise<string>;
 }
 
 /**

@@ -1,6 +1,6 @@
 # SmoothSend SDK
 
-Gasless transaction SDK for Aptos. Enable gas-free transactions with just 3 lines of code.
+Multi-chain gasless transaction SDK. Enable gas-free transactions with just 3 lines of code. Supports **Aptos** and **Stellar**.
 
 [![npm version](https://badge.fury.io/js/@smoothsend/sdk.svg)](https://www.npmjs.com/package/@smoothsend/sdk)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
@@ -8,11 +8,12 @@ Gasless transaction SDK for Aptos. Enable gas-free transactions with just 3 line
 
 ## 🚀 Features
 
-- **Gasless Transactions**: Users don't need APT for gas fees
-- **3-Line Integration**: Works with Aptos Wallet Adapter out of the box
+- **Gasless Transactions**: Users don't need APT or XLM for gas fees
+- **Multi-Chain**: Aptos + Stellar (same 3-line API)
+- **3-Line Integration**: Works with Aptos Wallet Adapter and Stellar wallets (Freighter, etc.)
 - **Type-Safe**: Full TypeScript support with comprehensive type definitions
-- **Testnet & Mainnet**: Supports both networks
-- **Fee-in-Token**: On mainnet, tiny fee deducted from token (not APT)
+- **Testnet & Mainnet**: Supports both networks on each chain
+- **Fee-in-Token**: On Aptos mainnet, tiny fee deducted from token (not APT)
 
 ## 📦 Installation
 
@@ -225,7 +226,7 @@ const smoothSend = new SmoothSendSDK({
   retries: 3
 });
 
-// Execute transfer from backend
+// Execute Aptos transfer from backend
 const result = await smoothSend.executeGaslessTransfer({
   transactionBytes: signedTx.transactionBytes,
   authenticatorBytes: signedTx.authenticatorBytes,
@@ -233,7 +234,38 @@ const result = await smoothSend.executeGaslessTransfer({
   network: 'mainnet'
 });
 
+// Or Stellar - submit signed XDR
+const stellarResult = await smoothSend.submitStellarTransaction(signedXdr);
+
 console.log('Transfer successful:', result.txHash);
+```
+
+## ⭐ Stellar - Gasless XLM & USDC
+
+Same 3-line API for Stellar. Use with Freighter, Stellar Wallets Kit, or any Stellar-compatible wallet.
+
+```typescript
+import { SmoothSendSDK } from '@smoothsend/sdk';
+
+const sdk = new SmoothSendSDK({ apiKey: 'pk_nogas_xxx', network: 'testnet' });
+
+// Option 1: Full transfer (build + sign + submit)
+const result = await sdk.transfer(
+  { from: 'G...', to: 'G...', amount: '100', token: 'XLM', chain: 'stellar-testnet' },
+  stellarWallet
+);
+
+// Option 2: Submit pre-signed XDR
+const signedXdr = await wallet.signTransaction(tx);
+const result = await sdk.submitStellarTransaction(signedXdr);
+```
+
+**Stellar wallet interface:**
+```typescript
+const stellarWallet = {
+  buildTransaction: (params) => buildPaymentTransaction(params.from, params.to, params.amount, params.token),
+  signTransaction: (tx) => walletKit.signTransaction(tx.toXDR()).then(r => r.signedTxXdr),
+};
 ```
 
 ## 🔧 Supported Networks
@@ -242,6 +274,8 @@ console.log('Transfer successful:', result.txHash);
 |---------|--------|----------|
 | Aptos Testnet | ✅ Active | Gasless transactions, Ed25519 signatures |
 | Aptos Mainnet | ✅ Active | Gasless transactions, Fee-in-token option |
+| Stellar Testnet | ✅ Active | Gasless XLM, USDC, EURC via Fee Bump |
+| Stellar Mainnet | ✅ Active | Gasless XLM, USDC, EURC via Fee Bump |
 
 ## 📚 API Reference
 
@@ -300,7 +334,7 @@ const result = await client.submitSignedTransaction({
 
 ### SmoothSendSDK (Classic)
 
-Direct SDK usage for more control.
+Direct SDK usage for more control. Works for both Aptos and Stellar.
 
 ```typescript
 import { SmoothSendSDK } from '@smoothsend/sdk';
@@ -312,13 +346,16 @@ const smoothSend = new SmoothSendSDK({
   retries: 3
 });
 
-// Execute gasless transfer
+// Aptos - execute gasless transfer
 const result = await smoothSend.executeGaslessTransfer({
   transactionBytes: signedTx.transactionBytes,
   authenticatorBytes: signedTx.authenticatorBytes,
   chain: 'aptos-testnet',
   network: 'testnet'
 });
+
+// Stellar - submit signed XDR
+const stellarResult = await smoothSend.submitStellarTransaction(signedXdr);
 ```
 
 ## 🔐 Security

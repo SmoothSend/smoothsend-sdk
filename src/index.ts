@@ -11,24 +11,17 @@
  * @packageDocumentation
  * 
  * @example
- * Basic usage:
+ * Aptos:
  * ```typescript
- * import { SmoothSendSDK } from '@smoothsend/sdk';
- * 
- * const sdk = new SmoothSendSDK({
- *   apiKey: 'no_gas_abc123...',
- *   network: 'testnet'
- * });
- * 
- * const result = await sdk.transfer({
- *   from: '0x123...',
- *   to: '0x456...',
- *   token: 'USDC',
- *   amount: '1000000',
- *   chain: 'aptos-testnet'
- * }, wallet);
- * 
- * console.log('Transaction:', result.txHash);
+ * const sdk = new SmoothSendSDK({ apiKey: 'pk_nogas_xxx', network: 'testnet' });
+ * const result = await sdk.transfer({ from, to, token: 'USDC', amount: '1000000', chain: 'aptos-testnet' }, aptosWallet);
+ * ```
+ *
+ * @example
+ * Stellar (same API):
+ * ```typescript
+ * const sdk = new SmoothSendSDK({ apiKey: 'pk_nogas_xxx', network: 'testnet' });
+ * const result = await sdk.transfer({ from, to, token: 'XLM', amount: '100', chain: 'stellar-testnet' }, stellarWallet);
  * ```
  */
 
@@ -58,8 +51,8 @@ export {
 } from './script-composer';
 
 // Chain adapters
-export { AptosAdapter } from './adapters/aptos'; // Multi-chain Aptos adapter
-// Note: EVM adapter will be implemented in future phase
+export { AptosAdapter } from './adapters/aptos';
+export { StellarAdapter } from './adapters/stellar';
 
 // Types - Export all types from types/index.ts
 export * from './types';
@@ -71,7 +64,7 @@ export { HttpClient } from './utils/http';
  * SDK version
  * @public
  */
-export const VERSION = '2.1.0'; // Updated for wallet adapter support
+export const VERSION = '1.1.0'; // Multi-chain: Aptos + Stellar
 
 // Default export
 export { SmoothSendSDK as default } from './core/SmoothSendSDK';

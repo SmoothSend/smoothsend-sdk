@@ -1,7 +1,7 @@
 {
   "name": "@smoothsend/sdk",
-  "version": "1.0.2",
-  "description": "Gasless transaction SDK for Aptos - Enable gas-free transactions with just 3 lines of code",
+  "version": "1.1.0",
+  "description": "Multi-chain gasless transaction SDK for Aptos & Stellar - Enable gas-free transactions with just 3 lines of code",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
@@ -33,12 +33,15 @@
   },
   "keywords": [
     "aptos",
+    "stellar",
     "gasless",
     "transactions",
     "gas-free",
     "sponsored-transactions",
     "wallet-adapter",
     "move",
+    "xlm",
+    "usdc",
     "blockchain",
     "dapp",
     "web3",
@@ -84,6 +87,7 @@
     "rollup": "^4.0.0",
     "rollup-plugin-dts": "^6.1.0",
     "ts-jest": "^29.1.1",
+    "tslib": "^2.8.1",
     "typescript": "^5.2.2"
   },
   "engines": {
