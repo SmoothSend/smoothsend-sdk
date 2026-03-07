@@ -169,13 +169,25 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
     additionalSignersAuthenticators?: Array<AccountAuthenticator>;
     pluginParams?: Record<string, unknown>;
   }): Promise<PendingTransactionResponse> {
-    const { transaction, senderAuthenticator, pluginParams } = args;
+    const { aptosConfig, transaction, senderAuthenticator, pluginParams } = args;
+
+    // Auto-detect network from aptosConfig (source of truth from wallet adapter)
+    // Falls back to constructor value if aptosConfig doesn't have a recognized network
+    const detectedNetwork = this.resolveNetwork(aptosConfig);
 
     if (this.debug) {
       console.log('[SmoothSend] Submitting gasless transaction:', {
         sender: transaction.rawTransaction?.sender?.toString(),
-        network: this.network,
+        configNetwork: this.network,
+        detectedNetwork,
       });
+    }
+
+    if (detectedNetwork !== this.network && this.debug) {
+      console.warn(
+        `[SmoothSend] Network mismatch: constructor=${this.network}, aptosConfig=${detectedNetwork}. ` +
+        `Using aptosConfig network (${detectedNetwork}).`
+      );
     }
 
     try {
@@ -183,16 +195,16 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
       const transactionBytes = Array.from(transaction.bcsToBytes());
       const authenticatorBytes = Array.from(senderAuthenticator.bcsToBytes());
 
-      // Prepare request payload
+      // Prepare request payload — always use the detected network
       const payload = {
         transactionBytes,
         authenticatorBytes,
-        network: this.network,
+        network: detectedNetwork,
         functionName: pluginParams?.functionName || 'unknown',
       };
 
       // Make request to SmoothSend gateway
-      const response = await this.makeRequest('/api/v1/relayer/gasless-transaction', payload);
+      const response = await this.makeRequest('/api/v1/relayer/gasless-transaction', payload, detectedNetwork);
 
       if (!response.success || !response.txnHash) {
         throw new Error(response.error || response.details || 'Transaction submission failed');
@@ -226,15 +238,38 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
   }
 
   /**
+   * Resolve the effective network from aptosConfig.
+   * aptosConfig.network is the source of truth set by AptosWalletAdapterProvider.
+   */
+  private resolveNetwork(aptosConfig: AptosConfig): 'testnet' | 'mainnet' {
+    try {
+      const configNetwork = (aptosConfig as any)?.network;
+      if (configNetwork === 'testnet' || configNetwork === 'mainnet') {
+        return configNetwork;
+      }
+      if (typeof configNetwork === 'string') {
+        const normalized = configNetwork.toLowerCase();
+        if (normalized === 'testnet' || normalized === 'mainnet') {
+          return normalized as 'testnet' | 'mainnet';
+        }
+      }
+    } catch {
+      // fall through
+    }
+    return this.network;
+  }
+
+  /**
    * Make an HTTP request to the SmoothSend gateway
    */
-  private async makeRequest(endpoint: string, payload: Record<string, unknown>): Promise<RelayerResponse> {
+  private async makeRequest(endpoint: string, payload: Record<string, unknown>, network?: 'testnet' | 'mainnet'): Promise<RelayerResponse> {
+    const effectiveNetwork = network || this.network;
     const url = `${this.gatewayUrl}${endpoint}`;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-API-Key': this.apiKey,
-      'X-Chain': `aptos-${this.network}`,
+      'X-Chain': `aptos-${effectiveNetwork}`,
     };
 
     // Add Origin header for public keys in browser
