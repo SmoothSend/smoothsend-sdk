@@ -54,6 +54,20 @@ export {
 export { AptosAdapter } from './adapters/aptos';
 export { StellarAdapter } from './adapters/stellar';
 
+// C-Address (Soroban Smart Account) adapter & types
+export {
+  StellarCAddressAdapter,
+  type CAddressCreateResult,
+  type CAddressLookupResult,
+  type CAddressBalance,
+  type CAddressBalanceResult,
+  type CAddressBuildTransferResult,
+  type CAddressSubmitResult,
+  type CAddressTransaction,
+  type CAddressHistoryResult,
+  type CAddressHealthResult,
+} from './adapters/stellar-c-address';
+
 // Types - Export all types from types/index.ts
 export * from './types';
 
@@ -64,7 +78,7 @@ export { HttpClient } from './utils/http';
  * SDK version
  * @public
  */
-export const VERSION = '1.1.0'; // Multi-chain: Aptos + Stellar
+export const VERSION = '2.0.0'; // Multi-chain: Aptos + Stellar + C-Address
 
 // Default export
 export { SmoothSendSDK as default } from './core/SmoothSendSDK';

@@ -67,6 +67,13 @@ export interface SmoothSendTransactionSubmitterConfig {
   timeout?: number;
 
   /**
+   * A function that returns a captcha token (e.g. from Cloudflare Turnstile or reCAPTCHA).
+   * Called before each transaction if the project requires captcha verification.
+   * Return null/undefined to skip captcha.
+   */
+  getCaptchaToken?: () => Promise<string | null | undefined>;
+
+  /**
    * Enable debug logging
    * @default false
    */
@@ -115,6 +122,7 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
   private readonly network: 'testnet' | 'mainnet';
   private readonly gatewayUrl: string;
   private readonly timeout: number;
+  private readonly getCaptchaToken?: () => Promise<string | null | undefined>;
   private readonly debug: boolean;
 
   constructor(config: SmoothSendTransactionSubmitterConfig) {
@@ -142,6 +150,7 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
     this.network = config.network || 'testnet';
     this.gatewayUrl = config.gatewayUrl || 'https://proxy.smoothsend.xyz';
     this.timeout = config.timeout || 30000;
+    this.getCaptchaToken = config.getCaptchaToken;
     this.debug = config.debug || false;
   }
 
@@ -231,6 +240,20 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
     // Add Origin header for public keys in browser
     if (this.apiKey.startsWith('pk_nogas_') && typeof window !== 'undefined') {
       headers['Origin'] = window.location.origin;
+    }
+
+    // Add captcha token if the project requires it
+    if (this.getCaptchaToken) {
+      try {
+        const token = await this.getCaptchaToken();
+        if (token) {
+          headers['X-Captcha-Token'] = token;
+        }
+      } catch (e) {
+        if (this.debug) {
+          console.warn('[SmoothSend] Failed to get captcha token:', e);
+        }
+      }
     }
 
     const controller = new AbortController();

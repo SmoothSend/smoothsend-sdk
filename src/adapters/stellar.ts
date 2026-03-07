@@ -13,6 +13,7 @@ import {
   UsageMetadata,
 } from '../types';
 import { HttpClient } from '../utils/http';
+import { StellarCAddressAdapter } from './stellar-c-address';
 
 /** Headers to route requests to Stellar relayer via proxy */
 const STELLAR_HEADERS = { 'X-Chain': 'stellar' };
@@ -25,6 +26,8 @@ const STELLAR_HEADERS = { 'X-Chain': 'stellar' };
 export class StellarAdapter implements IChainAdapter {
   public readonly chain: SupportedChain;
   public readonly config: ChainConfig;
+  /** C-Address (Soroban Smart Account) operations */
+  public readonly cAddress: StellarCAddressAdapter;
   private httpClient: HttpClient;
   private network: 'testnet' | 'mainnet';
 
@@ -55,6 +58,9 @@ export class StellarAdapter implements IChainAdapter {
       retries: 3,
       includeOrigin,
     });
+
+    // Initialize C-Address adapter (Soroban Smart Account)
+    this.cAddress = new StellarCAddressAdapter(this.httpClient, network);
   }
 
   setNetwork(network: 'testnet' | 'mainnet'): void {
@@ -168,7 +174,8 @@ export class StellarAdapter implements IChainAdapter {
   }
 
   validateAddress(address: string): boolean {
-    return /^G[A-Z2-7]{55}$/.test(address);
+    // Support both G-addresses (classic) and C-addresses (Soroban smart accounts)
+    return /^[GC][A-Z2-7]{55}$/.test(address);
   }
 
   validateAmount(amount: string): boolean {
