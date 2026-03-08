@@ -80,10 +80,17 @@ export function useSmoothSend(submitter: SmoothSendTransactionSubmitter): UseSmo
             withFeePayer: true,
           });
 
-          // Wallet signs sender portion only (no gas required from user)
-          // Cast to any: wallet-adapter-react ships its own bundled @aptos-labs/ts-sdk,
-          // so its signTransaction type is structurally incompatible with ours at compile time.
-          const senderAuthenticator = await signTransaction(transaction as any);
+          // Wallet signs sender portion only (no gas required from user).
+          // wallet-adapter v8 changed signTransaction to accept { transactionOrPayload, asFeePayer }
+          // and returns { authenticator, rawTransaction }.
+          // Cast to any to bridge the type mismatch between SDK devDep version and runtime v8.
+          const rawResult = await (signTransaction as any)({
+            transactionOrPayload: transaction as any,
+            asFeePayer: false,
+          });
+          // Handle both old API (returns AccountAuthenticator directly) and
+          // new v8 API (returns { authenticator, rawTransaction })
+          const senderAuthenticator = rawResult?.authenticator ?? rawResult;
 
           // Relayer signs as fee payer and submits
           return await submitter.submitTransaction({
