@@ -80,7 +80,7 @@ export { HttpClient } from './utils/http';
  * SDK version
  * @public
  */
-export const VERSION = '2.0.0'; // Multi-chain: Aptos + Stellar + C-Address
+export const VERSION = '2.1.1';
 
 // Default export
 export { SmoothSendSDK as default } from './core/SmoothSendSDK';
