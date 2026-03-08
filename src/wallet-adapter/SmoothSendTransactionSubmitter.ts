@@ -262,7 +262,7 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
   /**
    * Make an HTTP request to the SmoothSend gateway
    */
-  private async makeRequest(endpoint: string, payload: Record<string, unknown>, network?: 'testnet' | 'mainnet'): Promise<RelayerResponse> {
+  private async makeRequest(endpoint: string, payload: Record<string, unknown>, network?: 'testnet' | 'mainnet', method: 'GET' | 'POST' = 'POST'): Promise<RelayerResponse> {
     const effectiveNetwork = network || this.network;
     const url = `${this.gatewayUrl}${endpoint}`;
 
@@ -296,9 +296,9 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
 
     try {
       const response = await fetch(url, {
-        method: 'POST',
+        method,
         headers,
-        body: JSON.stringify(payload),
+        body: method === 'GET' ? undefined : JSON.stringify(payload),
         signal: controller.signal,
       });
 
@@ -320,8 +320,43 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
     }
   }
 
+  private sponsoredFunctionsCache: string[] | null = null;
+  private sponsoredFunctionsCacheAt = 0;
+  private readonly SPONSORED_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
   /**
-   * Get the current configuration
+   * Fetch the list of sponsored functions for this API key's project.
+   * Results are cached for 5 minutes. Returns ['*'] if all functions are sponsored.
+   */
+  async getSponsoredFunctions(): Promise<string[]> {
+    const now = Date.now();
+    if (this.sponsoredFunctionsCache !== null && now - this.sponsoredFunctionsCacheAt < this.SPONSORED_CACHE_TTL) {
+      return this.sponsoredFunctionsCache;
+    }
+    try {
+      const response = await this.makeRequest('/api/v1/sponsorship', {}, undefined, 'GET');
+      const fns = (response as any).sponsoredFunctions;
+      this.sponsoredFunctionsCache = Array.isArray(fns) ? fns : ['*'];
+    } catch {
+      this.sponsoredFunctionsCache = ['*']; // fail-open: assume all sponsored
+    }
+    this.sponsoredFunctionsCacheAt = now;
+    return this.sponsoredFunctionsCache!;
+  }
+
+  /**
+   * Check if a specific function is sponsored for gasless execution.
+   * @param functionName - Full function identifier, e.g. "0x123::module::function"
+   */
+  async isSponsored(functionName: string): Promise<boolean> {
+    const fns = await this.getSponsoredFunctions();
+    if (fns.includes('*')) return true;
+    const normalize = (id: string) => id.replace(/^(0x)0+([1-9a-f][0-9a-f]*)(::.+)$/i, '$1$2$3').toLowerCase();
+    const normalized = normalize(functionName);
+    return fns.some(f => normalize(f) === normalized);
+  }
+
+  /**
    */
   getConfig(): Readonly<SmoothSendTransactionSubmitterConfig> {
     return {
