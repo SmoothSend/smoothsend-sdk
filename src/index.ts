@@ -30,11 +30,13 @@ export { SmoothSendSDK } from './core/SmoothSendSDK';
 
 // Wallet Adapter Integration (EASIEST WAY TO INTEGRATE!)
 // Use this for: testnet (free), mainnet with paid tier, ANY transaction type
-export { 
-  SmoothSendTransactionSubmitter, 
+export {
+  SmoothSendTransactionSubmitter,
   createSmoothSendSubmitter,
   type SmoothSendTransactionSubmitterConfig,
   type TransactionSubmitter,
+  useSmoothSend,
+  type UseSmoothSendResult,
 } from './wallet-adapter';
 
 // Script Composer Integration (For fee-in-token transfers)
