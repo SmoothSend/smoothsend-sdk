@@ -72,11 +72,16 @@ export function useSmoothSend(submitter: SmoothSendTransactionSubmitter): UseSmo
           const network = config.network === 'mainnet' ? Network.MAINNET : Network.TESTNET;
           const aptos = new Aptos(new AptosConfig({ network }));
 
-          // Build transaction with fee-payer placeholder (AccountAddress.ZERO)
+          // Build transaction with fee-payer placeholder (AccountAddress.ZERO).
+          // replayProtectionNonce (AIP-123): random nonce instead of sequence number
+          // so concurrent gasless calls from many users never conflict.
           const transaction = await aptos.transaction.build.simple({
             sender: account.address.toString(),
             data: input.data,
-            options: input.options,
+            options: {
+              ...input.options,
+              replayProtectionNonce: BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)),
+            },
             withFeePayer: true,
           });
 

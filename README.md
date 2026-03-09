@@ -21,9 +21,9 @@ Multi-chain gasless transaction SDK. Enable gas-free transactions with just 3 li
 npm install @smoothsend/sdk
 ```
 
-## ⚡ Quick Start - Wallet Adapter (EASIEST - 3 Lines!)
+## ⚡ Quick Start - Wallet Adapter (EASIEST - All Transactions Gasless)
 
-The easiest way to integrate SmoothSend is using the Wallet Adapter integration. Just add 3 lines of code and ALL your transactions become gasless automatically!
+The simplest integration — pass `transactionSubmitter` to your wallet provider and **every transaction becomes gasless automatically**. Ideal when you want to sponsor all functions.
 
 ```typescript
 import { SmoothSendTransactionSubmitter } from '@smoothsend/sdk';
@@ -53,7 +53,7 @@ function App() {
 // 3. Use normal wallet functions - they're now gasless!
 function TransferButton() {
   const { signAndSubmitTransaction } = useWallet();
-  
+
   const handleTransfer = async () => {
     // This is now gasless! No code changes needed!
     const result = await signAndSubmitTransaction({
@@ -65,12 +65,58 @@ function TransferButton() {
     });
     console.log('Gasless transaction:', result.hash);
   };
-  
+
   return <button onClick={handleTransfer}>Send (Gasless!)</button>;
 }
 ```
 
-**That's it!** All transactions in your app are now gasless. Users don't need APT for gas fees!
+---
+
+## 🎯 useSmoothSend Hook (Per-Function Routing)
+
+Use `useSmoothSend` when you want **some functions gasless and others not** — for example, free to create but user pays to delete. The hook automatically routes each transaction based on your project's sponsored-functions allowlist configured in the dashboard.
+
+```typescript
+import { useSmoothSend, SmoothSendTransactionSubmitter } from '@smoothsend/sdk';
+
+// Create once at module scope (not inside the component)
+const submitter = new SmoothSendTransactionSubmitter({
+  apiKey: process.env.NEXT_PUBLIC_SMOOTHSEND_API_KEY!,
+  network: 'testnet',
+});
+
+function MyComponent() {
+  // Drop-in replacement for useWallet().signAndSubmitTransaction
+  const { signAndSubmitTransaction } = useSmoothSend(submitter);
+
+  const handleAction = async () => {
+    // Automatically routed:
+    //   function in allowlist  → fee-payer gasless (user pays 0 gas)
+    //   function not in list   → walletSignAndSubmit fallback (user pays gas)
+    await signAndSubmitTransaction({
+      data: {
+        function: '0xABC::mymodule::my_function',
+        functionArguments: [arg1, arg2],
+      }
+    });
+  };
+}
+```
+
+**Requirements for `useSmoothSend`:**
+- `react >= 17`
+- `@aptos-labs/wallet-adapter-react >= 8`
+- `@aptos-labs/ts-sdk >= 5.0.0` ← required for `withFeePayer: true` support
+
+**Do NOT use `transactionSubmitter` in `AptosWalletAdapterProvider`** when using `useSmoothSend` — the hook handles all routing directly.
+
+### When to use which
+
+| Want to... | Use |
+|---|---|
+| Make ALL transactions gasless, zero config | `transactionSubmitter` in `AptosWalletAdapterProvider` |
+| Sponsor only specific functions (allowlist) | `useSmoothSend(submitter)` hook |
+| Mainnet free tier — deduct fee from token | `ScriptComposerClient` |
 
 ---
 

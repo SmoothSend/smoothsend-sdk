@@ -39,6 +39,15 @@ export {
   type UseSmoothSendResult,
 } from './wallet-adapter';
 
+// Session Keys — invisible web3 (no wallet popup after setup)
+// Uses Aptos AIP-103 Permissioned Signers, enforced on-chain, no custom contract needed
+export {
+  SmoothSendSession,
+  type CreateSessionOptions,
+  type SessionInfo,
+  type SubmitResult,
+} from './session';
+
 // Script Composer Integration (For fee-in-token transfers)
 // Use this for: mainnet with free tier, token transfers with fee deducted from token
 export {
@@ -80,7 +89,7 @@ export { HttpClient } from './utils/http';
  * SDK version
  * @public
  */
-export const VERSION = '2.1.3';
+export const VERSION = '2.2.0';
 
 // Default export
 export { SmoothSendSDK as default } from './core/SmoothSendSDK';
