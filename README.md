@@ -120,6 +120,37 @@ function MyComponent() {
 
 ---
 
+## ⚡ True Gasless (Backend)
+
+For **Node.js Backends** running 100% sponsored transactions for arbitrary generic payloads using a Secret Key.
+
+```typescript
+import { TrueGaslessClient } from '@smoothsend/sdk';
+import { Account } from '@aptos-labs/ts-sdk';
+
+// 1. Instantiate the backend account (keep your private key safe!)
+const backendWallet = Account.fromPrivateKey({ privateKey: process.env.APTOS_PRIVATE_KEY! });
+
+// 2. Create client for mainnet/testnet using secret key
+const client = new TrueGaslessClient({
+  apiKey: process.env.SMOOTHSEND_SECRET_KEY!, // sk_nogas_*
+  network: 'mainnet'
+});
+
+// 3. Build & Execute your generic Move transaction payload seamlessly
+const result = await client.execute({
+  senderAccount: backendWallet,
+  payload: {
+    function: "0x12b...::nft::mint_to",
+    functionArguments: [recipientAddress, "1"]
+  }
+});
+
+console.log('Gasless transaction executed:', result.txHash);
+```
+
+---
+
 ## 💰 Script Composer - Fee-in-Token Transfers
 
 For **mainnet with free tier**, use Script Composer to deduct fees from the token being transferred:

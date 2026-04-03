@@ -61,6 +61,16 @@ export {
   type FeeEstimateResult,
 } from './script-composer';
 
+// True Gasless Integration (For strict backend server environments)
+// Use this for: Node.js backends executing 100% sponsored transactions using a generic Payload
+export {
+  TrueGaslessClient,
+  createTrueGaslessClient,
+  type TrueGaslessConfig,
+  type ExecuteGaslessParams,
+  type ExecuteGaslessResult,
+} from './true-gasless';
+
 // Chain adapters
 export { AptosAdapter } from './adapters/aptos';
 export { StellarAdapter } from './adapters/stellar';
