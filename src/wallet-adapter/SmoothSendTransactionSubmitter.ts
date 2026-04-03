@@ -33,9 +33,28 @@ import type {
   AnyRawTransaction,
   AccountAuthenticator,
 } from '@aptos-labs/ts-sdk';
+import {
+  Aptos,
+  AptosConfig as AptosConfigClass,
+  Network,
+  Account,
+  Ed25519Account,
+  AbstractedAccount,
+  AccountAddress,
+  MoveVector,
+} from '@aptos-labs/ts-sdk';
+import { ADD_PERMISSIONED_HANDLE_BYTECODE } from '../session/constants';
 
 // Re-export types for convenience
 export type { AptosConfig, PendingTransactionResponse, AnyRawTransaction, AccountAuthenticator };
+
+interface SessionState {
+  sessionAccount: Ed25519Account;
+  abstractedAccount: AbstractedAccount;
+  masterAddress: AccountAddress;
+  expiresAtMs: number;
+  aptosClient: Aptos;
+}
 
 /**
  * Configuration options for SmoothSendTransactionSubmitter
@@ -78,6 +97,34 @@ export interface SmoothSendTransactionSubmitterConfig {
    * @default false
    */
   debug?: boolean;
+
+  /**
+   * Enable session key mode — user signs once, all subsequent transactions
+   * are signed silently by an in-memory session key. Zero wallet popups after setup.
+   *
+   * Uses Aptos AIP-103 Permissioned Signers — enforced on-chain, not by SmoothSend.
+   * SmoothSend pays gas for the one-time session setup transaction too.
+   *
+   * @default false
+   *
+   * @example
+   * ```typescript
+   * const smoothSend = new SmoothSendTransactionSubmitter({
+   *   apiKey: 'pk_nogas_xxx',
+   *   network: 'mainnet',
+   *   session: true,
+   * });
+   * ```
+   */
+  session?: boolean;
+
+  /**
+   * How long the session key stays valid.
+   * Format: number + unit (s, m, h, d)
+   * Use "never" for client-side indefinite session validity.
+   * @default '24h'
+   */
+  sessionDuration?: string;
 }
 
 /**
@@ -124,6 +171,9 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
   private readonly timeout: number;
   private readonly getCaptchaToken?: () => Promise<string | null | undefined>;
   private readonly debug: boolean;
+  readonly sessionEnabled: boolean;
+  private readonly sessionDuration: string;
+  private _session: SessionState | null = null;
 
   constructor(config: SmoothSendTransactionSubmitterConfig) {
     if (!config.apiKey) {
@@ -152,7 +202,191 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
     this.timeout = config.timeout || 30000;
     this.getCaptchaToken = config.getCaptchaToken;
     this.debug = config.debug || false;
+    this.sessionEnabled = config.session || false;
+    this.sessionDuration = config.sessionDuration || '24h';
   }
+
+  // ─── Session key methods ────────────────────────────────────────────────────
+
+  /**
+   * Whether a valid session is currently active.
+   */
+  hasSession(): boolean {
+    return this._session !== null && Date.now() < this._session.expiresAtMs;
+  }
+
+  /**
+   * Create a session key for the given master account.
+   * Called once by useSmoothSend when session: true and no session exists.
+   * SmoothSend pays gas for the setup transaction.
+   *
+   * @param masterAccount - The user's wallet account (from wallet adapter)
+   */
+  async createSession(masterAccount: Account): Promise<void> {
+    const network = this.network === 'mainnet' ? Network.MAINNET : Network.TESTNET;
+    const aptosClient = new Aptos(new AptosConfigClass({ network }));
+
+    // Generate fresh in-memory session keypair
+    const sessionAccount = Account.generate() as Ed25519Account;
+
+    const expiresAtMs = Date.now() + this._parseDuration(this.sessionDuration);
+
+    // Step 1: Register session key on-chain via pre-compiled Move script
+    const setupTx = await aptosClient.transaction.build.simple({
+      sender: masterAccount.accountAddress,
+      withFeePayer: true,
+      data: {
+        bytecode: ADD_PERMISSIONED_HANDLE_BYTECODE,
+        functionArguments: [MoveVector.U8(sessionAccount.publicKey.toUint8Array())],
+      },
+      options: {
+        replayProtectionNonce: BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)),
+      },
+    });
+
+    const senderAuth = await this.signSenderAuthenticator(
+      masterAccount,
+      setupTx as AnyRawTransaction,
+      aptosClient,
+    );
+
+    const setupResult = await this.submitTransaction({
+      aptosConfig: aptosClient.config,
+      transaction: setupTx as AnyRawTransaction,
+      senderAuthenticator: senderAuth as AccountAuthenticator,
+    });
+    await aptosClient.waitForTransaction({ transactionHash: setupResult.hash });
+
+    if (this.debug) {
+      console.log('[SmoothSend] Session key registered on-chain:', setupResult.hash);
+    }
+
+    // Step 2: Enable account abstraction (idempotent — skip if already on)
+    const aaEnabled = await aptosClient.abstraction.isAccountAbstractionEnabled({
+      accountAddress: masterAccount.accountAddress,
+      authenticationFunction: '0x1::permissioned_delegation::authenticate',
+    });
+
+    if (!aaEnabled) {
+      const aaTx = await aptosClient.transaction.build.simple({
+        sender: masterAccount.accountAddress,
+        withFeePayer: true,
+        data: {
+          function: '0x1::account_abstraction::add_authentication_function',
+          functionArguments: [
+            AccountAddress.fromString('0x1'),
+            'permissioned_delegation',
+            'authenticate',
+          ],
+        },
+        options: {
+          replayProtectionNonce: BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)),
+        },
+      });
+      const aaAuth = await this.signSenderAuthenticator(
+        masterAccount,
+        aaTx as AnyRawTransaction,
+        aptosClient,
+      );
+      const aaResult = await this.submitTransaction({
+        aptosConfig: aptosClient.config,
+        transaction: aaTx as AnyRawTransaction,
+        senderAuthenticator: aaAuth as AccountAuthenticator,
+      });
+      await aptosClient.waitForTransaction({ transactionHash: aaResult.hash });
+
+      if (this.debug) {
+        console.log('[SmoothSend] Account abstraction enabled:', aaResult.hash);
+      }
+    }
+
+    // Build AbstractedAccount — signs future txs with session key,
+    // sender on-chain = master address, chain validates via permissioned_delegation
+    const abstractedAccount = AbstractedAccount.fromPermissionedSigner({
+      signer: sessionAccount,
+      accountAddress: masterAccount.accountAddress,
+    });
+
+    this._session = {
+      sessionAccount,
+      abstractedAccount,
+      masterAddress: masterAccount.accountAddress,
+      expiresAtMs,
+      aptosClient,
+    };
+  }
+
+  private async signSenderAuthenticator(
+    signer: Account,
+    transaction: AnyRawTransaction,
+    aptosClient: Aptos,
+  ): Promise<AccountAuthenticator> {
+    const walletLikeSigner = signer as any;
+
+    // Wallet-adapter compatible path (returns { authenticator, rawTransaction } in v8)
+    if (typeof walletLikeSigner?.signTransactionWithAuthenticator === 'function') {
+      const result = await walletLikeSigner.signTransactionWithAuthenticator(transaction);
+      return (result?.authenticator ?? result) as AccountAuthenticator;
+    }
+
+    // Native ts-sdk account path
+    return aptosClient.transaction.sign({
+      signer,
+      transaction,
+    }) as AccountAuthenticator;
+  }
+
+  /**
+   * Submit a transaction using the active session key — no wallet popup.
+   * Called by useSmoothSend after session is established.
+   */
+  async submitWithSession(functionName: `${string}::${string}::${string}`, functionArguments: any[] = [], typeArguments: string[] = []): Promise<PendingTransactionResponse> {
+    if (!this._session || !this.hasSession()) {
+      throw new Error('[SmoothSend] No active session. Call createSession() first.');
+    }
+
+    const { abstractedAccount, masterAddress, aptosClient } = this._session;
+
+    const tx = await aptosClient.transaction.build.simple({
+      sender: masterAddress,
+      withFeePayer: true,
+      data: {
+        function: functionName,
+        functionArguments,
+        ...(typeArguments.length > 0 ? { typeArguments } : {}),
+      },
+      options: {
+        replayProtectionNonce: BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)),
+      },
+    });
+
+    const senderAuth = aptosClient.transaction.sign({
+      signer: abstractedAccount,
+      transaction: tx,
+    });
+
+    return this.submitTransaction({
+      aptosConfig: aptosClient.config,
+      transaction: tx as AnyRawTransaction,
+      senderAuthenticator: senderAuth as AccountAuthenticator,
+    });
+  }
+
+  private _parseDuration(duration: string): number {
+    if (duration === 'never') {
+      // Client-side "never expires" mode; on-chain handle already uses u64::MAX.
+      return Number.MAX_SAFE_INTEGER;
+    }
+    const n = parseInt(duration, 10);
+    if (isNaN(n)) throw new Error(`Invalid sessionDuration "${duration}". Use e.g. "2h", "24h", "7d", or "never".`);
+    if (duration.endsWith('s')) return n * 1000;
+    if (duration.endsWith('m')) return n * 60 * 1000;
+    if (duration.endsWith('h')) return n * 3600 * 1000;
+    if (duration.endsWith('d')) return n * 86400 * 1000;
+    throw new Error(`Unknown unit in "${duration}". Supported: s, m, h, d, or "never".`);
+  }
+
+  // ─── Transaction submission ──────────────────────────────────────────────────
 
   /**
    * Submit a transaction through SmoothSend's gasless relayer

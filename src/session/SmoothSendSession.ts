@@ -10,26 +10,22 @@ import {
   type AnyRawTransaction,
 } from '@aptos-labs/ts-sdk';
 import type { SmoothSendTransactionSubmitter } from '../wallet-adapter/SmoothSendTransactionSubmitter';
-
-// ─── Pre-compiled Move script bytecode ───────────────────────────────────────
-// Source: aptos-labs/aptos-ts-sdk tests/e2e/transaction/helper.ts
-// This script calls permissioned_delegation::add_permissioned_handle, which is
-// NOT an entry function and cannot be called directly — only via a Move script.
-// Takes one argument: the session public key bytes (vector<u8>).
-const ADD_PERMISSIONED_HANDLE_BYTECODE =
-  'a11ceb0b0700000a0801001002101603262c04520405563d079301d70208ea034010aa041f0103010401060109010d010e011201140002080002080700030b0700040c0f0005100701000001050301010001020704050001030a05060001050f01080100010311090a000106130b01000107150b0100010002030702060c0a020001080001060c010a02010801010802010803010b0401090004060c08020b0401080303010c03060c060c03050802030b04010803060c0c083c53454c463e5f30046d61696e094170746f73436f696e0a6170746f735f636f696e04636f696e196d6967726174655f746f5f66756e6769626c655f73746f72650765643235353139256e65775f756e76616c6964617465645f7075626c69635f6b65795f66726f6d5f627974657314556e76616c6964617465645075626c69634b657917' +
-  '7065726d697373696f6e65645f64656c65676174696f6e0f67656e5f656432353531395f6b65790d44656c65676174696f6e4b65790b526174654c696d697465720c726174655f6c696d69746572066f7074696f6e046e6f6e65064f7074696f6e176164645f7065726d697373696f6e65645f68616e646c65167072696d6172795f66756e6769626c655f73746f7265146772616e745f6170745f7065726d697373696f6e167472616e73616374696f6e5f76616c69646174696f6e146772616e745f6761735f7065726d697373696f6effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000000000114636f6d70696c6174696f6e5f6d65746164617461090003322e3003322e3100000c170a0038000b01110111020c020a0038010c040b020b040600a0724e1809000011040c060a000e060600e1f5050000000011050b000e060600e1f50500000000110602';
+import { ADD_PERMISSIONED_HANDLE_BYTECODE } from './constants';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 function parseDurationToSeconds(duration: string): number {
+  if (duration === 'never') {
+    // Client-side "never expires" mode; on-chain handle already uses u64::MAX.
+    return Math.floor(Number.MAX_SAFE_INTEGER / 1000);
+  }
   const n = parseInt(duration, 10);
-  if (isNaN(n)) throw new Error(`Invalid duration "${duration}". Use e.g. "2h", "24h", "7d".`);
+  if (isNaN(n)) throw new Error(`Invalid duration "${duration}". Use e.g. "2h", "24h", "7d", or "never".`);
   if (duration.endsWith('s')) return n;
   if (duration.endsWith('m')) return n * 60;
   if (duration.endsWith('h')) return n * 3600;
   if (duration.endsWith('d')) return n * 86400;
-  throw new Error(`Unknown duration unit in "${duration}". Supported: s, m, h, d.`);
+  throw new Error(`Unknown duration unit in "${duration}". Supported: s, m, h, d, or "never".`);
 }
 
 // ─── types ───────────────────────────────────────────────────────────────────
@@ -48,7 +44,7 @@ export interface CreateSessionOptions {
   /**
    * How long the session should stay valid.
    * Format: number + unit (s = seconds, m = minutes, h = hours, d = days)
-   * @example '2h' | '24h' | '7d'
+   * @example '2h' | '24h' | '7d' | 'never'
    */
   expiresIn: string;
 

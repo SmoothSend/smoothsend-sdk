@@ -7,6 +7,10 @@
  *   - Function in allowlist → fee-payer gasless path via SmoothSend
  *   - Function not in allowlist → regular wallet submission (user pays gas)
  *
+ * When submitter has session: true, the first transaction triggers a one-time
+ * wallet sign to register a session key on-chain. Every transaction after that
+ * is signed silently — zero wallet popups.
+ *
  * Requires: react >=17, @aptos-labs/wallet-adapter-react >=3, @aptos-labs/ts-sdk >=1
  *
  * @example
@@ -19,24 +23,25 @@
  * ```
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useWallet } from '@aptos-labs/wallet-adapter-react';
-import { Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
+import { Aptos, AptosConfig, Network, Account } from '@aptos-labs/ts-sdk';
 import type { SmoothSendTransactionSubmitter } from './SmoothSendTransactionSubmitter';
 
 export interface UseSmoothSendResult {
   /**
    * Smart signAndSubmitTransaction — same signature as the wallet adapter's version.
    * Sponsored functions go gasless via SmoothSend; others fall back to user-pays-gas.
+   * With session: true, zero wallet popups after the first transaction.
    */
   signAndSubmitTransaction: (input: { data: any; options?: any }) => Promise<any>;
+  /**
+   * Whether a session key is currently active (only relevant when session: true).
+   * Updates reactively when session is created or expires.
+   */
+  hasSession: boolean;
 }
 
-/**
- * useSmoothSend
- *
- * @param submitter - A SmoothSendTransactionSubmitter instance (created once, e.g. at module scope)
- */
 export function useSmoothSend(submitter: SmoothSendTransactionSubmitter): UseSmoothSendResult {
   const {
     account,
@@ -44,12 +49,22 @@ export function useSmoothSend(submitter: SmoothSendTransactionSubmitter): UseSmo
     signAndSubmitTransaction: walletSignAndSubmit,
   } = useWallet();
 
+  // Track session state reactively so UI updates when session is created/expires
+  const [hasSessionState, setHasSessionState] = useState(submitter.hasSession());
+
   // Prefetch the sponsored-functions list on mount so the first transaction
   // benefits from an already-populated cache with no added latency.
   useEffect(() => {
     submitter.getSponsoredFunctions().catch(() => {
       // Fail-open: getSponsoredFunctions already handles errors internally
     });
+  }, [submitter]);
+
+  useEffect(() => {
+    const refresh = () => setHasSessionState(submitter.hasSession());
+    refresh();
+    const timer = setInterval(refresh, 1000);
+    return () => clearInterval(timer);
   }, [submitter]);
 
   const signAndSubmitTransaction = useCallback(
@@ -60,6 +75,63 @@ export function useSmoothSend(submitter: SmoothSendTransactionSubmitter): UseSmo
 
       const functionName: string = input?.data?.function ?? '';
 
+      // ── Session key path ────────────────────────────────────────────────────
+      // When session: true, bypass wallet signing entirely after first setup.
+      // Still respects the per-function allowlist — non-sponsored functions
+      // fall through to regular wallet submission (user pays gas).
+      if (submitter.sessionEnabled) {
+        // Check allowlist first — no point setting up a session for a non-sponsored function
+        const canGoGasless = typeof signTransaction === 'function';
+        const sponsored = canGoGasless && (await submitter.isSponsored(functionName));
+
+        if (sponsored) {
+          // If no active session, do the one-time setup
+          if (!submitter.hasSession()) {
+            if (!signTransaction) {
+              console.warn('[SmoothSend] session: true requires signTransaction support. Falling back to regular submission.');
+            } else {
+              try {
+                // Adapter object only needs accountAddress + signTransactionWithAuthenticator.
+                // The submitter handles both wallet-adapter and native signer shapes.
+                const walletAccount = {
+                  accountAddress: account.address as any,
+                  signTransactionWithAuthenticator: async (tx: any) => {
+                    const rawResult = await (signTransaction as any)({
+                      transactionOrPayload: tx,
+                      asFeePayer: false,
+                    });
+                    return rawResult?.authenticator ?? rawResult;
+                  },
+                } as unknown as Account;
+                await submitter.createSession(walletAccount);
+                setHasSessionState(submitter.hasSession());
+              } catch (err: any) {
+                console.warn('[SmoothSend] Session setup failed, falling back to regular gasless:', err.message);
+                // Fall through to normal gasless path below
+              }
+            }
+          }
+
+          // If session is now active, submit silently — no wallet popup
+          if (submitter.hasSession()) {
+            try {
+              return await submitter.submitWithSession(
+                functionName as `${string}::${string}::${string}`,
+                input.data?.functionArguments ?? [],
+                input.data?.typeArguments ?? [],
+              );
+            } catch (err: any) {
+              // Session may have expired mid-flight — clear it and fall through
+              console.warn('[SmoothSend] Session submit failed, will re-auth on next call:', err.message);
+              setHasSessionState(false);
+              // Fall through to regular gasless path for this call
+            }
+          }
+        }
+        // Non-sponsored function → fall through to walletSignAndSubmit below
+      }
+
+      // ── Regular gasless path (TransactionSubmitter) ─────────────────────────
       // signTransaction (sign-only) must be available for the gasless path.
       // Most modern wallets (Petra, Nightly) support it. If absent, fall through.
       const canGoGasless = typeof signTransaction === 'function';
@@ -125,5 +197,8 @@ export function useSmoothSend(submitter: SmoothSendTransactionSubmitter): UseSmo
     [account, signTransaction, walletSignAndSubmit, submitter],
   );
 
-  return { signAndSubmitTransaction };
+  return {
+    signAndSubmitTransaction,
+    hasSession: hasSessionState,
+  };
 }
