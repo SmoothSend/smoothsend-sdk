@@ -50,7 +50,8 @@ export function useSmoothSend(submitter: SmoothSendTransactionSubmitter): UseSmo
   } = useWallet();
 
   // Track session state reactively so UI updates when session is created/expires
-  const [hasSessionState, setHasSessionState] = useState(submitter.hasSession());
+  const initialHasSession = submitter?.hasSession?.() ?? false;
+  const [hasSessionState, setHasSessionState] = useState(initialHasSession);
 
   // Prefetch the sponsored-functions list on mount so the first transaction
   // benefits from an already-populated cache with no added latency.
@@ -61,7 +62,13 @@ export function useSmoothSend(submitter: SmoothSendTransactionSubmitter): UseSmo
   }, [submitter]);
 
   useEffect(() => {
-    const refresh = () => setHasSessionState(submitter.hasSession());
+    if (!submitter) return;
+
+    const refresh = () => {
+      const hasSession = submitter.hasSession?.() ?? false;
+      setHasSessionState(hasSession);
+    };
+
     refresh();
     const timer = setInterval(refresh, 1000);
     return () => clearInterval(timer);
@@ -74,19 +81,27 @@ export function useSmoothSend(submitter: SmoothSendTransactionSubmitter): UseSmo
       }
 
       const functionName: string = input?.data?.function ?? '';
+      console.log('[SmoothSend] signAndSubmitTransaction called:', {
+        functionName,
+        sessionEnabled: submitter.sessionEnabled,
+        hasSession: submitter.hasSession(),
+      });
 
       // ── Session key path ────────────────────────────────────────────────────
       // When session: true, bypass wallet signing entirely after first setup.
       // Still respects the per-function allowlist — non-sponsored functions
       // fall through to regular wallet submission (user pays gas).
       if (submitter.sessionEnabled) {
+        console.log('[SmoothSend] Session mode enabled');
         // Check allowlist first — no point setting up a session for a non-sponsored function
         const canGoGasless = typeof signTransaction === 'function';
         const sponsored = canGoGasless && (await submitter.isSponsored(functionName));
+        console.log('[SmoothSend] Sponsored check:', { sponsored, canGoGasless });
 
         if (sponsored) {
           // If no active session, do the one-time setup
           if (!submitter.hasSession()) {
+            console.log('[SmoothSend] No session, creating one...');
             if (!signTransaction) {
               console.warn('[SmoothSend] session: true requires signTransaction support. Falling back to regular submission.');
             } else {
@@ -104,7 +119,8 @@ export function useSmoothSend(submitter: SmoothSendTransactionSubmitter): UseSmo
                   },
                 } as unknown as Account;
                 await submitter.createSession(walletAccount);
-                setHasSessionState(submitter.hasSession());
+                console.log('[SmoothSend] Session created successfully');
+                setHasSessionState(submitter.hasSession?.() ?? false);
               } catch (err: any) {
                 console.warn('[SmoothSend] Session setup failed, falling back to regular gasless:', err.message);
                 // Fall through to normal gasless path below
@@ -114,6 +130,7 @@ export function useSmoothSend(submitter: SmoothSendTransactionSubmitter): UseSmo
 
           // If session is now active, submit silently — no wallet popup
           if (submitter.hasSession()) {
+            console.log('[SmoothSend] Session is active, using submitWithSession');
             try {
               return await submitter.submitWithSession(
                 functionName as `${string}::${string}::${string}`,

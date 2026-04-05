@@ -72,11 +72,6 @@ export interface SubmitResult {
 // ─── SmoothSendSession ───────────────────────────────────────────────────────
 
 /**
- * @experimental
- * Session keys require ACCOUNT_ABSTRACTION (feature 85) and PERMISSIONED_SIGNER (feature 84)
- * to be enabled on the Aptos network. As of now these features are only live on devnet/local node.
- * This will be fully released when the features are activated on testnet and mainnet.
- *
  * A session that lets your app submit transactions on behalf of a user
  * without any wallet popup after the initial one-time setup.
  *
@@ -140,6 +135,16 @@ export class SmoothSendSession {
       options.network ?? (submitter.getConfig().network as 'testnet' | 'mainnet') ?? 'testnet';
     const aptosNetwork = network === 'mainnet' ? Network.MAINNET : Network.TESTNET;
     const aptosClient = new Aptos(new AptosConfig({ network: aptosNetwork }));
+
+    const feature = await aptosClient.view({
+      payload: {
+        function: '0x1::features::is_permissioned_signer_enabled',
+        functionArguments: [],
+      },
+    }).catch(() => [false]);
+    if (!Array.isArray(feature) || feature[0] !== true) {
+      throw new Error('[SmoothSend] Session keys unavailable on this network (permissioned signer feature disabled).');
+    }
 
     // Generate a fresh Ed25519 session keypair (lives in memory, never persisted)
     const sessionAccount = Account.generate() as Ed25519Account;

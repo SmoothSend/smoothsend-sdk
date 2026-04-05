@@ -56,7 +56,7 @@ interface SessionState {
   aptosClient: Aptos;
 }
 
-/**
+ /**
  * Configuration options for SmoothSendTransactionSubmitter
  */
 export interface SmoothSendTransactionSubmitterConfig {
@@ -102,7 +102,8 @@ export interface SmoothSendTransactionSubmitterConfig {
    * Enable session key mode — user signs once, all subsequent transactions
    * are signed silently by an in-memory session key. Zero wallet popups after setup.
    *
-   * Uses Aptos AIP-103 Permissioned Signers — enforced on-chain, not by SmoothSend.
+   * Uses Aptos Account Abstraction (AIP-103 Permissioned Signers) — enforced on-chain.
+   * Live on mainnet and testnet (as of April 2025).
    * SmoothSend pays gas for the one-time session setup transaction too.
    *
    * @default false
@@ -314,6 +315,23 @@ export class SmoothSendTransactionSubmitter implements TransactionSubmitter {
       expiresAtMs,
       aptosClient,
     };
+  }
+
+  private async isPermissionedSignerEnabled(aptosClient: Aptos): Promise<boolean> {
+    try {
+      const result = await aptosClient.view({
+        payload: {
+          function: '0x1::features::is_permissioned_signer_enabled',
+          functionArguments: [],
+        },
+      });
+      return Array.isArray(result) && result[0] === true;
+    } catch (error) {
+      if (this.debug) {
+        console.warn('[SmoothSend] Failed to probe permissioned signer feature:', error);
+      }
+      return false;
+    }
   }
 
   private async signSenderAuthenticator(
