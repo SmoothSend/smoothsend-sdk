@@ -72,10 +72,9 @@ export class HttpClient {
         ...config.customHeaders,
       };
 
-      // Add Origin header if in browser and includeOrigin is true
-      if (this.includeOrigin && typeof window !== 'undefined' && window.location) {
-        headers['Origin'] = window.location.origin;
-      }
+      // Browsers forbid setting the `Origin` header manually ("unsafe header").
+      // The browser will set it automatically on cross-origin requests.
+      // If callers need the origin explicitly, they can pass a custom header (e.g. `X-Origin`).
 
       this.client = axios.create({
         baseURL: this.baseURL,

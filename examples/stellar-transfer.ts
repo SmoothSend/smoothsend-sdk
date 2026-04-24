@@ -16,7 +16,7 @@ const sdk = new SmoothSendSDK({
 const stellarWallet: StellarWallet = {
   async buildTransaction({ from, to, amount, token }) {
     // Use @stellar/stellar-sdk to build payment with fee: "0"
-    // See stellarfrontend/src/lib/stellar.ts for buildPaymentTransaction
+    // See stellar/frontend/src/lib/stellar.ts for buildPaymentTransaction
     throw new Error('Implement with Stellar SDK - buildPaymentTransaction(from, to, amount, token)');
   },
   async signTransaction(transaction) {
