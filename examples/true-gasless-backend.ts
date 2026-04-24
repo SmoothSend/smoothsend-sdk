@@ -42,7 +42,8 @@ async function main() {
   });
 
   // 5. Define an APT transfer payload (sending 0.1 APT to a random address)
-  const RECIPIENT = "0x742d35cc6634c0532925a3b8d2d2d2d2d2d2d2d2000000000000000000000000"; 
+  // TODO: Replace RECIPIENT with a real destination address before running this example.
+  const RECIPIENT = "0x742d35cc6634c0532925a3b8d2d2d2d2d2d2d2d2000000000000000000000000"; // ← placeholder
   
   const payload = {
     function: "0x1::aptos_account::transfer" as `${string}::${string}::${string}`,
