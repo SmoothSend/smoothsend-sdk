@@ -99,7 +99,7 @@ export { HttpClient } from './utils/http';
  * SDK version
  * @public
  */
-export const VERSION = '2.2.0';
+export const VERSION = '2.2.1';
 
 // Default export
 export { SmoothSendSDK as default } from './core/SmoothSendSDK';
