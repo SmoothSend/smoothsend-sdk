@@ -24,7 +24,7 @@
  * ```
  */
 
-import { Aptos, AptosConfig, Account, InputGenerateTransactionPayloadData } from '@aptos-labs/ts-sdk';
+import { Aptos, AptosConfig, Account, InputGenerateTransactionPayloadData, Network } from '@aptos-labs/ts-sdk';
 import { HttpClient } from '../utils/http';
 import { SmoothSendError } from '../types/errors';
 
@@ -92,9 +92,14 @@ export class TrueGaslessClient {
       timeout: this.config.timeout,
       retries: 3,
       includeOrigin: false, // Backend client should not send Origin header
+      baseUrl: this.config.proxyUrl, // Use custom proxy URL if provided
     });
 
-    this.aptos = new Aptos(new AptosConfig({ network: this.config.network as any }));
+    const networkMap: Record<'testnet' | 'mainnet', Network> = {
+      testnet: Network.TESTNET,
+      mainnet: Network.MAINNET,
+    };
+    this.aptos = new Aptos(new AptosConfig({ network: networkMap[this.config.network] }));
   }
 
   private log(message: string, data?: any): void {
