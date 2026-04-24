@@ -17,6 +17,8 @@ export interface HttpClientConfig {
   retries?: number;
   customHeaders?: Record<string, string>;
   includeOrigin?: boolean;
+  /** Override the default proxy base URL (e.g. for self-hosted relayers) */
+  baseUrl?: string;
 }
 
 /**
@@ -59,7 +61,7 @@ export class HttpClient {
       this.apiKey = config.apiKey;
       this.network = config.network || 'testnet';
       this.maxRetries = config.retries || 3;
-      this.baseURL = 'https://proxy.smoothsend.xyz';
+      this.baseURL = config.baseUrl || 'https://proxy.smoothsend.xyz';
       this.isProxyMode = true;
       this.includeOrigin = config.includeOrigin || false;
 
