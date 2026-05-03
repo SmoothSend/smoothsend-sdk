@@ -25,6 +25,17 @@
  * ```
  */
 
+if (typeof window !== 'undefined') {
+  console.warn(
+    '[@smoothsend/sdk] You are importing the full SDK. ' +
+    'Consider using subpath imports for smaller bundles:\\n' +
+    '  - import { ... } from "@smoothsend/sdk/avax"\\n' +
+    '  - import { ... } from "@smoothsend/sdk/aptos"\\n' +
+    '  - import { ... } from "@smoothsend/sdk/stellar"'
+  );
+}
+
+
 // Main SDK export
 export { SmoothSendSDK } from './core/SmoothSendSDK';
 
@@ -127,12 +138,7 @@ export * from './types';
 // Utilities
 export { HttpClient } from './utils/http';
 
-/**
- * SDK version
- * @public
- */
-export const VERSION = '2.2.1';
+export { VERSION } from './version';
 
 // Default export
 export { SmoothSendSDK as default } from './core/SmoothSendSDK';
-

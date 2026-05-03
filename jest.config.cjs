@@ -20,6 +20,9 @@ module.exports = {
   testTimeout: 30000,
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1'
-  }
+  },
+  transformIgnorePatterns: [
+    'node_modules/(?!(@aptos-labs|@mizuwallet-sdk)/)'
+  ]
 };
 

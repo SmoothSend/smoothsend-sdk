@@ -8,9 +8,10 @@ import {
   SmoothSendTransactionSubmitter,
   SmoothSendTransactionSubmitterConfig,
   AptosConfig,
-  SerializableTransaction,
-  SerializableAuthenticator
+  AnyRawTransaction,
+  AccountAuthenticator
 } from '../../src/wallet-adapter';
+import { Network } from '@aptos-labs/ts-sdk';
 
 // Mock fetch globally
 const mockFetch = jest.fn();
@@ -102,10 +103,10 @@ describe('SmoothSendTransactionSubmitter', () => {
     let submitter: SmoothSendTransactionSubmitter;
 
     const mockAptosConfig: AptosConfig = {
-      network: 'testnet',
+      network: Network.TESTNET,
     };
 
-    const mockTransaction: SerializableTransaction = {
+    const mockTransaction = {
       bcsToBytes: () => new Uint8Array([1, 2, 3, 4, 5]),
       rawTransaction: {
         sender: { toString: () => '0x123' },
@@ -114,11 +115,11 @@ describe('SmoothSendTransactionSubmitter', () => {
         gas_unit_price: { toString: () => '100' },
         expiration_timestamp_secs: { toString: () => '1234567890' },
       },
-    };
+    } as unknown as AnyRawTransaction;
 
-    const mockAuthenticator: SerializableAuthenticator = {
+    const mockAuthenticator = {
       bcsToBytes: () => new Uint8Array([6, 7, 8, 9, 10]),
-    };
+    } as unknown as AccountAuthenticator;
 
     beforeEach(() => {
       submitter = new SmoothSendTransactionSubmitter({

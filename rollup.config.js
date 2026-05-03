@@ -3,49 +3,82 @@ import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import dts from 'rollup-plugin-dts';
 
+const external = ['axios', 'ethers', '@aptos-labs/ts-sdk', 'react', '@aptos-labs/wallet-adapter-react', 'viem', 'viem/account-abstraction', 'viem/actions'];
+
+const sharedPlugins = [
+  resolve(),
+  commonjs(),
+  typescript({
+    tsconfig: './tsconfig.json'
+  })
+];
+
 export default [
-  // ES Modules build
+  // 1. Subpath Exports (Isolated Builds)
   {
-    input: 'src/index.ts',
+    input: {
+      'avax/index': 'src/avax-entry.ts',
+      'aptos/index': 'src/aptos-entry.ts',
+      'stellar/index': 'src/stellar-entry.ts'
+    },
+    output: [
+      {
+        dir: 'dist',
+        format: 'esm',
+        entryFileNames: '[name].js',
+        chunkFileNames: 'chunks/shared-[hash].js',
+        sourcemap: true,
+        hoistTransitiveImports: false
+      },
+      {
+        dir: 'dist',
+        format: 'cjs',
+        entryFileNames: '[name].cjs',
+        chunkFileNames: 'chunks/shared-[hash].cjs',
+        sourcemap: true
+      }
+    ],
+    plugins: sharedPlugins,
+    external
+  },
+  // 2. Main SDK Entry (Full Build)
+  {
+    input: {
+      'index': 'src/index.ts'
+    },
+    output: [
+      {
+        dir: 'dist',
+        format: 'esm',
+        entryFileNames: '[name].js',
+        sourcemap: true
+      },
+      {
+        dir: 'dist',
+        format: 'cjs',
+        entryFileNames: '[name].cjs',
+        sourcemap: true
+      }
+    ],
+    plugins: sharedPlugins,
+    external
+  },
+  // 3. Type definitions
+  {
+    input: {
+      'index': 'dist/index.d.ts',
+      'avax/index': 'dist/avax-entry.d.ts',
+      'aptos/index': 'dist/aptos-entry.d.ts',
+      'stellar/index': 'dist/stellar-entry.d.ts'
+    },
     output: {
-      file: 'dist/index.esm.js',
+      dir: 'dist',
       format: 'esm',
-      sourcemap: true
+      entryFileNames: '[name].d.ts',
+      chunkFileNames: 'chunks/shared-[hash].d.ts'
     },
-    plugins: [
-      resolve(),
-      commonjs(),
-      typescript({
-        tsconfig: './tsconfig.json'
-      })
-    ],
-    external: ['axios', 'ethers', '@aptos-labs/ts-sdk', 'react', '@aptos-labs/wallet-adapter-react', 'viem', 'viem/account-abstraction', 'viem/actions']
-  },
-  // CommonJS build
-  {
-    input: 'src/index.ts',
-    output: {
-      file: 'dist/index.js',
-      format: 'cjs',
-      sourcemap: true
-    },
-    plugins: [
-      resolve(),
-      commonjs(),
-      typescript({
-        tsconfig: './tsconfig.json'
-      })
-    ],
-    external: ['axios', 'ethers', '@aptos-labs/ts-sdk', 'react', '@aptos-labs/wallet-adapter-react', 'viem', 'viem/account-abstraction', 'viem/actions']
-  },
-  // Type definitions
-  {
-    input: 'dist/index.d.ts',
-    output: {
-      file: 'dist/index.d.ts',
-      format: 'esm'
-    },
-    plugins: [dts()]
+    plugins: [dts()],
+    external
   }
 ];
 
