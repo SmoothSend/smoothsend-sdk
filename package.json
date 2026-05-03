@@ -1,6 +1,6 @@
 {
   "name": "@smoothsend/sdk",
-  "version": "2.2.3",
+  "version": "2.2.4",
   "description": "Multi-chain gasless transaction SDK with C-Address (Soroban Smart Account) support for Stellar, Aptos & more",
   "type": "module",
   "main": "dist/index.cjs",
