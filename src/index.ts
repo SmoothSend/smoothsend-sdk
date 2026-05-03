@@ -39,6 +39,38 @@ export {
   type UseSmoothSendResult,
 } from './wallet-adapter';
 
+// Avalanche ERC-4337 via gateway (`SmoothSendAvaxSubmitter` — exported also as `AvaxSubmitter`)
+export {
+  AvaxSubmitter,
+  SmoothSendAvaxSubmitter,
+  createSmoothSendAvaxSubmitter,
+  SmoothSendAvaxProvider,
+  useSmoothSendAvax,
+  useSmoothSendAvaxContext,
+  encodeAvaxExecuteCalldata,
+  hashUserOperationAvax,
+  readAvaxSenderNonce,
+  userOperationAvaxToViem,
+  avaxExecuteAbi,
+  SIMPLE_ACCOUNT_FACTORY_ABI,
+  encodeCreateAccountFactoryData,
+  predictSimpleAccountAddress,
+  ENTRY_POINT_V07_ADDRESS,
+  fetchAvaxAaPublicDefaults,
+  type AvaxAaPublicDefaults,
+  type SmoothSendAvaxSubmitterConfig,
+  type SubmitSponsoredAvaxUserOpOptions,
+  type SmoothSendAvaxContextValue,
+  type UseSmoothSendAvaxParams,
+  type AvaxSponsorshipMode,
+  type GasEstimateAvax,
+  type PaymasterSignRequestAvax,
+  type PaymasterSignResponseAvax,
+  type SponsoredUserOpDraftAvax,
+  type UserOperationAvax,
+  type UserOperationReceiptAvax,
+} from './avax';
+
 // Session Keys — invisible web3 (no wallet popup after setup)
 // Uses Aptos AIP-103 Permissioned Signers, enforced on-chain, no custom contract needed
 export {

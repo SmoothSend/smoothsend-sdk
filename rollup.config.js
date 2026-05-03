@@ -19,7 +19,7 @@ export default [
         tsconfig: './tsconfig.json'
       })
     ],
-    external: ['axios', 'ethers', '@aptos-labs/ts-sdk', 'react', '@aptos-labs/wallet-adapter-react']
+    external: ['axios', 'ethers', '@aptos-labs/ts-sdk', 'react', '@aptos-labs/wallet-adapter-react', 'viem', 'viem/account-abstraction', 'viem/actions']
   },
   // CommonJS build
   {
@@ -36,7 +36,7 @@ export default [
         tsconfig: './tsconfig.json'
       })
     ],
-    external: ['axios', 'ethers', '@aptos-labs/ts-sdk', 'react', '@aptos-labs/wallet-adapter-react']
+    external: ['axios', 'ethers', '@aptos-labs/ts-sdk', 'react', '@aptos-labs/wallet-adapter-react', 'viem', 'viem/account-abstraction', 'viem/actions']
   },
   // Type definitions
   {
