@@ -3,7 +3,8 @@ import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import dts from 'rollup-plugin-dts';
 
-const external = ['axios', 'ethers', '@aptos-labs/ts-sdk', 'react', '@aptos-labs/wallet-adapter-react', 'viem', 'viem/account-abstraction', 'viem/actions'];
+const externalDeps = ['axios', 'ethers', '@aptos-labs/ts-sdk', 'react', 'react-dom', '@aptos-labs/wallet-adapter-react', 'viem', 'viem/account-abstraction', 'viem/actions'];
+const external = (id) => externalDeps.some(dep => id === dep || id.startsWith(`${dep}/`));
 
 const sharedPlugins = [
   resolve(),
