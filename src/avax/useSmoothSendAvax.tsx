@@ -132,12 +132,6 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
       '[SmoothSend AVAX] apiKey required — pass useSmoothSendAvax({ apiKey }) or wrap SmoothSendAvaxProvider'
     );
   }
-  if (!smartAccountAddressProp && !accountFactory) {
-    throw new Error(
-      '[SmoothSend AVAX] Provide smartAccountAddress and/or accountFactory (SimpleAccountFactory)'
-    );
-  }
-
   const submitter = useMemo(
     () => new SmoothSendAvaxSubmitter({ apiKey, network }),
     [apiKey, network]
@@ -159,6 +153,12 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
       }
       if (!walletClient) {
         throw new Error('[SmoothSend AVAX] walletClient missing (wagmi useWalletClient)');
+      }
+
+      if (!smartAccountAddressProp && !accountFactory) {
+        throw new Error(
+          '[SmoothSend AVAX] No smartAccountAddress or accountFactory provided. Pass them to SmoothSendAvaxProvider or useSmoothSendAvax hook.'
+        );
       }
 
       const account = walletClient.account;
