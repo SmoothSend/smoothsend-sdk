@@ -32,6 +32,16 @@ export const avaxExecuteAbi = [
     ],
     outputs: [],
   },
+  {
+    name: 'executeBatch',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'dest', type: 'address[]' },
+      { name: 'func', type: 'bytes[]' },
+    ],
+    outputs: [],
+  },
 ] as const;
 
 export function encodeAvaxExecuteCalldata(
@@ -43,6 +53,17 @@ export function encodeAvaxExecuteCalldata(
     abi: avaxExecuteAbi,
     functionName: 'execute',
     args: [to, value, data],
+  });
+}
+
+export function encodeAvaxExecuteBatchCalldata(
+  dest: Address[],
+  func: Hex[]
+): Hex {
+  return encodeFunctionData({
+    abi: avaxExecuteAbi,
+    functionName: 'executeBatch',
+    args: [dest, func],
   });
 }
 

@@ -140,10 +140,12 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
   const { publicClient, walletClient } = params;
 
   const submitCall = useCallback(
-    async (call: {
-      to: Address;
+    async (params: {
+      to?: Address;
       data?: Hex;
       value?: bigint;
+      call?: { to: Address; data?: Hex; value?: bigint };
+      calls?: { to: Address; data?: Hex; value?: bigint }[];
       mode?: AvaxSponsorshipMode;
       paymaster?: Omit<PaymasterSignRequestAvax, 'mode' | 'userOp'>;
       waitForReceipt?: boolean;
@@ -235,11 +237,21 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
         /* chain may not support EIP-1559 estimation */
       }
 
-      const callData = encodeAvaxExecuteCalldata(
-        call.to,
-        call.value ?? 0n,
-        call.data ?? '0x'
-      );
+      let callData: Hex;
+      if (params.calls && params.calls.length > 0) {
+        callData = encodeAvaxExecuteBatchCalldata(
+          params.calls.map(c => c.to),
+          params.calls.map(c => c.data ?? '0x')
+        );
+      } else {
+        const target = params.call?.to ?? params.to;
+        if (!target) throw new Error('[SmoothSend AVAX] No target address (to) provided');
+        callData = encodeAvaxExecuteCalldata(
+          target,
+          params.call?.value ?? params.value ?? 0n,
+          params.call?.data ?? params.data ?? '0x'
+        );
+      }
 
       return submitter.submitSponsoredUserOperation({
         userOp: {
