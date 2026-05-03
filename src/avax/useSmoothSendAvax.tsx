@@ -25,6 +25,7 @@ import { SmoothSendAvaxSubmitter } from './SmoothSendAvaxSubmitter';
 import type { AvaxSponsorshipMode, PaymasterSignRequestAvax } from './types';
 import {
   encodeAvaxExecuteCalldata,
+  encodeAvaxExecuteBatchCalldata,
   hashUserOperationAvax,
   readAvaxSenderNonce,
 } from './viemHelpers';
@@ -262,9 +263,9 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
           maxPriorityFeePerGas: toHex(maxPriorityFeePerGas),
           ...(factory && factoryData ? { factory, factoryData } : {}),
         },
-        mode: call.mode ?? 'developer-sponsored',
-        paymaster: call.paymaster,
-        waitForReceipt: call.waitForReceipt,
+        mode: params.mode ?? params.call?.mode ?? 'developer-sponsored',
+        paymaster: params.paymaster ?? params.call?.paymaster,
+        waitForReceipt: params.waitForReceipt ?? params.call?.waitForReceipt,
         signUserOp: async (op) => {
           const hash = hashUserOperationAvax({
             chainId,
