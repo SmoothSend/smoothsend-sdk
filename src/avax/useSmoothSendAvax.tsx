@@ -304,12 +304,8 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
       if (args.calls.length === 0) {
         throw new Error('[SmoothSend AVAX] No calls provided');
       }
-      // For now, use the first call (single execution)
-      const call = args.calls[0];
       return submitCall({
-        to: call.to,
-        data: call.data,
-        value: call.value,
+        calls: args.calls,
         mode: args.sponsorshipMode,
         paymaster: args.paymaster,
         waitForReceipt: args.waitForReceipt,
