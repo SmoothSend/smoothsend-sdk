@@ -263,9 +263,9 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
           maxPriorityFeePerGas: toHex(maxPriorityFeePerGas),
           ...(factory && factoryData ? { factory, factoryData } : {}),
         },
-        mode: params.mode ?? params.call?.mode ?? 'developer-sponsored',
-        paymaster: params.paymaster ?? params.call?.paymaster,
-        waitForReceipt: params.waitForReceipt ?? params.call?.waitForReceipt,
+        mode: params.mode ?? 'developer-sponsored',
+        paymaster: params.paymaster,
+        waitForReceipt: params.waitForReceipt,
         signUserOp: async (op) => {
           const hash = hashUserOperationAvax({
             chainId,
