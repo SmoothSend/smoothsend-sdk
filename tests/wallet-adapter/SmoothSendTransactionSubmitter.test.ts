@@ -104,7 +104,7 @@ describe('SmoothSendTransactionSubmitter', () => {
 
     const mockAptosConfig: AptosConfig = {
       network: Network.TESTNET,
-    };
+    } as any;
 
     const mockTransaction = {
       bcsToBytes: () => new Uint8Array([1, 2, 3, 4, 5]),
