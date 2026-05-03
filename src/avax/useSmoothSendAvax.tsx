@@ -242,6 +242,7 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
       if (params.calls && params.calls.length > 0) {
         callData = encodeAvaxExecuteBatchCalldata(
           params.calls.map(c => c.to),
+          params.calls.map(c => c.value ?? 0n),
           params.calls.map(c => c.data ?? '0x')
         );
       } else {
