@@ -108,6 +108,16 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
     paymaster?: Omit<PaymasterSignRequestAvax, 'mode' | 'userOp'>;
     waitForReceipt?: boolean;
   }) => ReturnType<SmoothSendAvaxSubmitter['submitSponsoredUserOperation']>;
+  submitSponsoredUserOp: (args: {
+    calls: Array<{
+      to: Address;
+      data?: Hex;
+      value?: bigint;
+    }>;
+    sponsorshipMode?: AvaxSponsorshipMode;
+    paymaster?: Omit<PaymasterSignRequestAvax, 'mode' | 'userOp'>;
+    waitForReceipt?: boolean;
+  }) => ReturnType<SmoothSendAvaxSubmitter['submitSponsoredUserOperation']>;
 } {
   const ctx = useSmoothSendAvaxContext();
   const apiKey = params.apiKey ?? ctx?.apiKey;
@@ -266,5 +276,33 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
     ]
   );
 
-  return { submitter, submitCall };
+  const submitSponsoredUserOp = useCallback(
+    async (args: {
+      calls: Array<{
+        to: Address;
+        data?: Hex;
+        value?: bigint;
+      }>;
+      sponsorshipMode?: AvaxSponsorshipMode;
+      paymaster?: Omit<PaymasterSignRequestAvax, 'mode' | 'userOp'>;
+      waitForReceipt?: boolean;
+    }) => {
+      if (args.calls.length === 0) {
+        throw new Error('[SmoothSend AVAX] No calls provided');
+      }
+      // For now, use the first call (single execution)
+      const call = args.calls[0];
+      return submitCall({
+        to: call.to,
+        data: call.data,
+        value: call.value,
+        mode: args.sponsorshipMode,
+        paymaster: args.paymaster,
+        waitForReceipt: args.waitForReceipt,
+      });
+    },
+    [submitCall]
+  );
+
+  return { submitter, submitCall, submitSponsoredUserOp };
 }
