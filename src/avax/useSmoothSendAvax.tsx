@@ -15,6 +15,8 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useState,
+  useEffect,
   type ReactNode,
 } from 'react';
 import type { Address, Hex } from 'viem';
@@ -33,6 +35,7 @@ import {
   encodeCreateAccountFactoryData,
   predictSimpleAccountAddress,
 } from './simpleAccountFactory';
+import type { AvaxAaPublicDefaults } from './publicAaDefaults';
 
 export type SmoothSendAvaxContextValue = {
   apiKey: string;
@@ -101,6 +104,8 @@ export type UseSmoothSendAvaxParams = {
 
 export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
   submitter: SmoothSendAvaxSubmitter;
+  paymasterAddress: Address | null;
+  discoveredFactory: Address | null;
   submitCall: (args: {
     to: Address;
     data?: Hex;
@@ -125,7 +130,7 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
   const network = params.network ?? ctx?.network ?? 'testnet';
   const smartAccountAddressProp =
     params.smartAccountAddress ?? ctx?.smartAccountAddress;
-  const accountFactory = params.accountFactory ?? ctx?.accountFactory;
+  const accountFactoryProp = params.accountFactory ?? ctx?.accountFactory;
   const accountSalt = params.accountSalt ?? ctx?.accountSalt ?? 0n;
 
   if (!apiKey) {
@@ -133,10 +138,27 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
       '[SmoothSend AVAX] apiKey required — pass useSmoothSendAvax({ apiKey }) or wrap SmoothSendAvaxProvider'
     );
   }
+
   const submitter = useMemo(
     () => new SmoothSendAvaxSubmitter({ apiKey, network }),
     [apiKey, network]
   );
+
+  const [discovered, setDiscovered] = useState<AvaxAaPublicDefaults | null>(null);
+
+  useEffect(() => {
+    submitter.getPublicAaDefaults().then(setDiscovered).catch(err => {
+      console.warn('[SmoothSend AVAX] Auto-discovery failed:', err);
+    });
+  }, [submitter]);
+
+  const accountFactory = accountFactoryProp ?? (
+    network === 'mainnet' ? discovered?.simpleAccountFactoryMainnet : discovered?.simpleAccountFactoryFuji
+  ) as Address | undefined;
+
+  const paymasterAddress = (
+    network === 'mainnet' ? discovered?.paymasterMainnet : discovered?.paymasterFuji
+  ) as Address | null;
 
   const { publicClient, walletClient } = params;
 
@@ -314,5 +336,11 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
     [submitCall]
   );
 
-  return { submitter, submitCall, submitSponsoredUserOp };
+  return {
+    submitter,
+    submitCall,
+    submitSponsoredUserOp,
+    paymasterAddress,
+    discoveredFactory: accountFactory ?? null,
+  };
 }

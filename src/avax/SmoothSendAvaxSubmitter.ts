@@ -201,6 +201,12 @@ export class SmoothSendAvaxSubmitter {
     return res.data;
   }
 
+  /** Fetch public AA addresses (Factory, Paymaster) from gateway. */
+  async getPublicAaDefaults() {
+    const { fetchAvaxAaPublicDefaults } = await import('./publicAaDefaults');
+    return fetchAvaxAaPublicDefaults(this.config.gatewayUrl ?? DEFAULT_GATEWAY);
+  }
+
   /**
    * One call: estimate gas → paymaster/sign → merge → your sign → send → (optional) wait for receipt.
    */
