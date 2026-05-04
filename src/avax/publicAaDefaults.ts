@@ -9,12 +9,14 @@ export const ENTRY_POINT_V07_ADDRESS =
 export type AvaxAaPublicDefaults = {
   success?: boolean;
   simpleAccountFactoryFuji: `0x${string}` | null;
+  simpleAccountFactoryMainnet: `0x${string}` | null;
   entryPointV07: typeof ENTRY_POINT_V07_ADDRESS;
+  paymasterFuji: `0x${string}` | null;
+  paymasterMainnet: `0x${string}` | null;
 };
 
 /**
- * Fetch SimpleAccount factory hint from SmoothSend gateway (GET; no auth).
- * Ops configure {@link https://proxy.smoothsend.xyz} `AVAX_FUJI_SIMPLE_ACCOUNT_FACTORY`; until then this returns null.
+ * Fetch SimpleAccount factory and Paymaster hints from SmoothSend gateway (GET; no auth).
  */
 export async function fetchAvaxAaPublicDefaults(
   gatewayUrl = 'https://proxy.smoothsend.xyz'
@@ -27,21 +29,29 @@ export async function fetchAvaxAaPublicDefaults(
   const j = (await res.json()) as {
     success?: boolean;
     simpleAccountFactoryFuji?: string | null;
+    simpleAccountFactoryMainnet?: string | null;
     entryPointV07?: string;
+    paymasterFuji?: string | null;
+    paymasterMainnet?: string | null;
   };
 
-  let factory: `0x${string}` | null = null;
-  const fac = j.simpleAccountFactoryFuji?.trim();
-  if (fac && fac.startsWith('0x') && /^0x[a-fA-F0-9]{40}$/.test(fac)) {
-    factory = fac as `0x${string}`;
-  }
+  const parseAddress = (addr: string | null | undefined): `0x${string}` | null => {
+    const clean = addr?.trim();
+    if (clean && clean.startsWith('0x') && /^0x[a-fA-F0-9]{40}$/.test(clean)) {
+      return clean as `0x${string}`;
+    }
+    return null;
+  };
 
   return {
     success: j.success,
-    simpleAccountFactoryFuji: factory,
+    simpleAccountFactoryFuji: parseAddress(j.simpleAccountFactoryFuji),
+    simpleAccountFactoryMainnet: parseAddress(j.simpleAccountFactoryMainnet),
     entryPointV07:
       j.entryPointV07?.startsWith('0x') && /^0x[a-fA-F0-9]{40}$/.test(j.entryPointV07)
         ? (j.entryPointV07 as typeof ENTRY_POINT_V07_ADDRESS)
         : ENTRY_POINT_V07_ADDRESS,
+    paymasterFuji: parseAddress(j.paymasterFuji),
+    paymasterMainnet: parseAddress(j.paymasterMainnet),
   };
 }
