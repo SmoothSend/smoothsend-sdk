@@ -28,6 +28,7 @@ export {
   SmoothSendAvaxProvider,
   useSmoothSendAvax,
   useSmoothSendAvaxContext,
+  useSmoothSendWrite,
   encodeAvaxExecuteCalldata,
   hashUserOperationAvax,
   readAvaxSenderNonce,
