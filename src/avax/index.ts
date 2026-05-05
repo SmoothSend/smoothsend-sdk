@@ -30,6 +30,7 @@ export {
 export {
   avaxExecuteAbi,
   encodeAvaxExecuteCalldata,
+  encodeAvaxExecuteBatchCalldata,
   hashUserOperationAvax,
   readAvaxSenderNonce,
   userOperationAvaxToViem,
