@@ -57,12 +57,18 @@ export class SmoothSendAvaxClient {
     call: SimpleCallInput;
     mode?: AvaxSponsorshipMode;
     paymaster?: Omit<PaymasterSignRequestAvax, 'mode' | 'userOp'>;
+    smartAccountAddress?: Address;
+    accountFactory?: Address;
+    accountSalt?: bigint;
     waitForReceipt?: boolean;
   }) {
     return this.submitCalls({
       calls: [args.call],
       mode: args.mode,
       paymaster: args.paymaster,
+      smartAccountAddress: args.smartAccountAddress,
+      accountFactory: args.accountFactory,
+      accountSalt: args.accountSalt,
       waitForReceipt: args.waitForReceipt
     });
   }
@@ -71,12 +77,19 @@ export class SmoothSendAvaxClient {
     calls: SimpleCallInput[];
     mode?: AvaxSponsorshipMode;
     paymaster?: Omit<PaymasterSignRequestAvax, 'mode' | 'userOp'>;
+    smartAccountAddress?: Address;
+    accountFactory?: Address;
+    accountSalt?: bigint;
     waitForReceipt?: boolean;
   }) {
     if (args.calls.length === 0) {
       throw new Error('[SmoothSend AVAX] No calls provided');
     }
-    const built = await this.buildDraft(args.calls);
+    const built = await this.buildDraft(args.calls, {
+      smartAccountAddress: args.smartAccountAddress,
+      accountFactory: args.accountFactory,
+      accountSalt: args.accountSalt
+    });
     const result = await this.submitter.submitSponsoredUserOperation({
       userOp: built.userOp,
       mode: args.mode ?? 'developer-sponsored',
@@ -102,6 +115,9 @@ export class SmoothSendAvaxClient {
   async estimateUserPaysFee(args: {
     calls: SimpleCallInput[];
     paymaster?: Omit<PaymasterSignRequestAvax, 'mode' | 'userOp'>;
+    smartAccountAddress?: Address;
+    accountFactory?: Address;
+    accountSalt?: bigint;
   }): Promise<{
     feePreview?: AvaxFeePreview;
     exchangeRate?: string;
@@ -110,7 +126,11 @@ export class SmoothSendAvaxClient {
     if (args.calls.length === 0) {
       throw new Error('[SmoothSend AVAX] No calls provided');
     }
-    const built = await this.buildDraft(args.calls);
+    const built = await this.buildDraft(args.calls, {
+      smartAccountAddress: args.smartAccountAddress,
+      accountFactory: args.accountFactory,
+      accountSalt: args.accountSalt
+    });
     const estimate = await this.submitter.estimateUserPaysFee({
       userOp: built.userOp,
       entryPoint: built.entryPoint,
@@ -123,7 +143,14 @@ export class SmoothSendAvaxClient {
     };
   }
 
-  private async buildDraft(calls: SimpleCallInput[]): Promise<{
+  private async buildDraft(
+    calls: SimpleCallInput[],
+    overrides?: {
+      smartAccountAddress?: Address;
+      accountFactory?: Address;
+      accountSalt?: bigint;
+    }
+  ): Promise<{
     userOp: {
       sender: string;
       nonce: string;
@@ -145,11 +172,15 @@ export class SmoothSendAvaxClient {
 
     const defaults = await this.submitter.getPublicAaDefaults().catch(() => null);
     const accountFactory =
+      overrides?.accountFactory ??
       this.config.accountFactory ??
       ((this.config.network ?? 'testnet') === 'mainnet'
         ? defaults?.simpleAccountFactoryMainnet
         : defaults?.simpleAccountFactoryFuji) ??
       undefined;
+
+    const accountSalt = overrides?.accountSalt ?? this.config.accountSalt ?? 0n;
+    const smartAccountAddress = overrides?.smartAccountAddress ?? this.config.smartAccountAddress;
 
     const chainId = Number(publicClient.chain?.id ?? (await publicClient.getChainId()));
     const entryPoint = (await this.submitter.getSupportedEntryPoints())[0] as Address;
@@ -160,19 +191,19 @@ export class SmoothSendAvaxClient {
         publicClient,
         factory: accountFactory,
         owner: ownerAddress,
-        salt: this.config.accountSalt ?? 0n
+        salt: accountSalt
       });
       if (
-        this.config.smartAccountAddress &&
-        predicted.toLowerCase() !== this.config.smartAccountAddress.toLowerCase()
+        smartAccountAddress &&
+        predicted.toLowerCase() !== smartAccountAddress.toLowerCase()
       ) {
         throw new Error(
-          `[SmoothSend AVAX] smartAccountAddress ${this.config.smartAccountAddress} does not match factory prediction ${predicted}`
+          `[SmoothSend AVAX] smartAccountAddress ${smartAccountAddress} does not match factory prediction ${predicted}`
         );
       }
       sender = predicted;
-    } else if (this.config.smartAccountAddress) {
-      sender = this.config.smartAccountAddress;
+    } else if (smartAccountAddress) {
+      sender = smartAccountAddress;
     } else {
       throw new Error(
         '[SmoothSend AVAX] Provide smartAccountAddress or accountFactory (or use gateway public defaults).'
@@ -193,7 +224,7 @@ export class SmoothSendAvaxClient {
       }
       nonce = 0n;
       factory = accountFactory;
-      factoryData = encodeCreateAccountFactoryData(ownerAddress, this.config.accountSalt ?? 0n);
+      factoryData = encodeCreateAccountFactoryData(ownerAddress, accountSalt);
     } else {
       nonce = await readAvaxSenderNonce({
         publicClient,
