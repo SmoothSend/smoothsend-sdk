@@ -55,3 +55,8 @@ export {
   type SmoothSendAvaxContextValue,
   type UseSmoothSendAvaxParams,
 } from './useSmoothSendAvax';
+
+export {
+  useSmoothSendWrite,
+  type UseSmoothSendWriteParams,
+} from './useSmoothSendWrite';
