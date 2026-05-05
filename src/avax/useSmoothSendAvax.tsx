@@ -110,10 +110,13 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
   submitter: SmoothSendAvaxSubmitter;
   paymasterAddress: Address | null;
   discoveredFactory: Address | null;
+  isPending: boolean;
   submitCall: (args: {
-    to: Address;
+    to?: Address;
     data?: Hex;
     value?: bigint;
+    call?: { to: Address; data?: Hex; value?: bigint };
+    calls?: { to: Address; data?: Hex; value?: bigint }[];
     mode?: AvaxSponsorshipMode;
     paymaster?: Omit<PaymasterSignRequestAvax, 'mode' | 'userOp'>;
     waitForReceipt?: boolean;
@@ -161,6 +164,7 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
   );
 
   const [discovered, setDiscovered] = useState<AvaxAaPublicDefaults | null>(null);
+  const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
     submitter.getPublicAaDefaults().then(setDiscovered).catch(err => {
@@ -189,6 +193,8 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
       paymaster?: Omit<PaymasterSignRequestAvax, 'mode' | 'userOp'>;
       waitForReceipt?: boolean;
     }) => {
+      setIsPending(true);
+      try {
       if (!publicClient) {
         throw new Error('[SmoothSend AVAX] publicClient missing (wagmi usePublicClient)');
       }
@@ -293,30 +299,33 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
         );
       }
 
-      return submitter.submitSponsoredUserOperation({
-        userOp: {
-          sender,
-          nonce: toHex(nonce),
-          callData,
-          maxFeePerGas: toHex(maxFeePerGas),
-          maxPriorityFeePerGas: toHex(maxPriorityFeePerGas),
-          ...(factory && factoryData ? { factory, factoryData } : {}),
-        },
-        mode: params.mode ?? 'developer-sponsored',
-        paymaster: params.paymaster,
-        waitForReceipt: params.waitForReceipt,
-        signUserOp: async (op) => {
-          const hash = hashUserOperationAvax({
-            chainId,
-            entryPointAddress: entryPoint,
-            userOperation: op,
-          });
-          return walletClient.signMessage({
-            account,
-            message: { raw: hash },
-          });
-        },
-      });
+        return await submitter.submitSponsoredUserOperation({
+          userOp: {
+            sender,
+            nonce: toHex(nonce),
+            callData,
+            maxFeePerGas: toHex(maxFeePerGas),
+            maxPriorityFeePerGas: toHex(maxPriorityFeePerGas),
+            ...(factory && factoryData ? { factory, factoryData } : {}),
+          },
+          mode: params.mode ?? 'developer-sponsored',
+          paymaster: params.paymaster,
+          waitForReceipt: params.waitForReceipt,
+          signUserOp: async (op) => {
+            const hash = hashUserOperationAvax({
+              chainId,
+              entryPointAddress: entryPoint,
+              userOperation: op,
+            });
+            return walletClient.signMessage({
+              account,
+              message: { raw: hash },
+            });
+          },
+        });
+      } finally {
+        setIsPending(false);
+      }
     },
     [
       accountFactory,
@@ -492,5 +501,6 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
     estimateUserPaysFee,
     paymasterAddress,
     discoveredFactory: accountFactory ?? null,
+    isPending,
   };
 }
