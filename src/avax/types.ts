@@ -50,14 +50,31 @@ export interface PaymasterSignRequestAvax {
   sponsorUUID?: string;
 }
 
+export interface AvaxFeePreview {
+  predictedGasCostWei: string;
+  predictedTokenFee: string;
+  minTokenFee: string;
+  variableTokenFee: string;
+  floorApplied: boolean;
+}
+
+export interface AvaxHashTypes {
+  sendUserOperationResult?: 'userOpHash';
+  explorerTxLinkRequires?: 'transactionHash';
+  userOpHash?: 'userOpHash';
+  transactionHash?: 'transactionHash';
+}
+
 export interface PaymasterSignResponseAvax {
   success: boolean;
   requestId?: string;
   network?: string;
+  hashTypes?: AvaxHashTypes;
   paymasterAndData: string;
   paymasterData?: string;
   signature?: string;
   exchangeRate?: string;
+  feePreview?: AvaxFeePreview;
   paymasterDataParts?: Record<string, string>;
   error?: string;
 }
@@ -77,6 +94,7 @@ export interface UserOperationReceiptAvax {
     blockNumber: number;
     blockHash: string;
   };
+  hashTypes?: AvaxHashTypes;
 }
 
 export interface JsonRpcResponseAvax<T = unknown> {

@@ -24,7 +24,11 @@ import { toHex } from 'viem';
 import type { PublicClient, WalletClient } from 'viem';
 
 import { SmoothSendAvaxSubmitter } from './SmoothSendAvaxSubmitter';
-import type { AvaxSponsorshipMode, PaymasterSignRequestAvax } from './types';
+import type {
+  AvaxFeePreview,
+  AvaxSponsorshipMode,
+  PaymasterSignRequestAvax
+} from './types';
 import {
   encodeAvaxExecuteCalldata,
   encodeAvaxExecuteBatchCalldata,
@@ -124,6 +128,18 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
     paymaster?: Omit<PaymasterSignRequestAvax, 'mode' | 'userOp'>;
     waitForReceipt?: boolean;
   }) => ReturnType<SmoothSendAvaxSubmitter['submitSponsoredUserOperation']>;
+  estimateUserPaysFee: (args: {
+    to?: Address;
+    data?: Hex;
+    value?: bigint;
+    call?: { to: Address; data?: Hex; value?: bigint };
+    calls?: { to: Address; data?: Hex; value?: bigint }[];
+    paymaster?: Omit<PaymasterSignRequestAvax, 'mode' | 'userOp'>;
+  }) => Promise<{
+    entryPoint: string;
+    feePreview?: AvaxFeePreview;
+    exchangeRate?: string;
+  }>;
 } {
   const ctx = useSmoothSendAvaxContext();
   const apiKey = params.apiKey ?? ctx?.apiKey;
@@ -336,10 +352,144 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
     [submitCall]
   );
 
+  const estimateUserPaysFee = useCallback(
+    async (params: {
+      to?: Address;
+      data?: Hex;
+      value?: bigint;
+      call?: { to: Address; data?: Hex; value?: bigint };
+      calls?: { to: Address; data?: Hex; value?: bigint }[];
+      paymaster?: Omit<PaymasterSignRequestAvax, 'mode' | 'userOp'>;
+    }) => {
+      if (!publicClient) {
+        throw new Error('[SmoothSend AVAX] publicClient missing (wagmi usePublicClient)');
+      }
+      if (!walletClient) {
+        throw new Error('[SmoothSend AVAX] walletClient missing (wagmi useWalletClient)');
+      }
+
+      if (!smartAccountAddressProp && !accountFactory) {
+        throw new Error(
+          '[SmoothSend AVAX] No smartAccountAddress or accountFactory provided. Pass them to SmoothSendAvaxProvider or useSmoothSendAvax hook.'
+        );
+      }
+
+      const account = walletClient.account;
+      if (!account) {
+        throw new Error(
+          '[SmoothSend AVAX] walletClient.account missing — connect wallet (wagmi useWalletClient)'
+        );
+      }
+      const ownerAddress = account.address as Address;
+
+      let sender: Address;
+      if (accountFactory) {
+        const predicted = await predictSimpleAccountAddress({
+          publicClient,
+          factory: accountFactory,
+          owner: ownerAddress,
+          salt: accountSalt,
+        });
+        if (
+          smartAccountAddressProp &&
+          predicted.toLowerCase() !== smartAccountAddressProp.toLowerCase()
+        ) {
+          throw new Error(
+            `[SmoothSend AVAX] smartAccountAddress ${smartAccountAddressProp} does not match factory prediction ${predicted}`
+          );
+        }
+        sender = predicted;
+      } else {
+        sender = smartAccountAddressProp as Address;
+      }
+
+      const entryPoint = (await submitter.getSupportedEntryPoints())[0] as Address;
+      const code = await publicClient.getBytecode({ address: sender });
+      const deployed =
+        typeof code === 'string' &&
+        code !== '0x' &&
+        code.length > 2;
+
+      let nonce: bigint;
+      let factory: Address | undefined;
+      let factoryData: Hex | undefined;
+      if (!deployed) {
+        if (!accountFactory) {
+          throw new Error(
+            '[SmoothSend AVAX] No bytecode at sender — pass accountFactory so the paymaster can sponsor deploy + call in one UserOp'
+          );
+        }
+        nonce = 0n;
+        factory = accountFactory;
+        factoryData = encodeCreateAccountFactoryData(ownerAddress, accountSalt);
+      } else {
+        nonce = await readAvaxSenderNonce({
+          publicClient,
+          entryPointAddress: entryPoint,
+          sender,
+        });
+      }
+
+      let maxFeePerGas = 50n * 10n ** 9n;
+      let maxPriorityFeePerGas = 2n * 10n ** 9n;
+      try {
+        const est = await publicClient.estimateFeesPerGas();
+        if (est.maxFeePerGas) maxFeePerGas = est.maxFeePerGas;
+        if (est.maxPriorityFeePerGas) maxPriorityFeePerGas = est.maxPriorityFeePerGas;
+      } catch {
+        // ignore and use fallback values
+      }
+
+      let callData: Hex;
+      if (params.calls && params.calls.length > 0) {
+        callData = encodeAvaxExecuteBatchCalldata(
+          params.calls.map(c => c.to),
+          params.calls.map(c => c.value ?? 0n),
+          params.calls.map(c => c.data ?? '0x')
+        );
+      } else {
+        const target = params.call?.to ?? params.to;
+        if (!target) throw new Error('[SmoothSend AVAX] No target address (to) provided');
+        callData = encodeAvaxExecuteCalldata(
+          target,
+          params.call?.value ?? params.value ?? 0n,
+          params.call?.data ?? params.data ?? '0x'
+        );
+      }
+
+      const quote = await submitter.estimateUserPaysFee({
+        userOp: {
+          sender,
+          nonce: toHex(nonce),
+          callData,
+          maxFeePerGas: toHex(maxFeePerGas),
+          maxPriorityFeePerGas: toHex(maxPriorityFeePerGas),
+          ...(factory && factoryData ? { factory, factoryData } : {}),
+        },
+        paymaster: params.paymaster,
+      });
+
+      return {
+        entryPoint: quote.entryPoint,
+        feePreview: quote.feePreview,
+        exchangeRate: quote.exchangeRate,
+      };
+    },
+    [
+      accountFactory,
+      accountSalt,
+      publicClient,
+      smartAccountAddressProp,
+      submitter,
+      walletClient,
+    ]
+  );
+
   return {
     submitter,
     submitCall,
     submitSponsoredUserOp,
+    estimateUserPaysFee,
     paymasterAddress,
     discoveredFactory: accountFactory ?? null,
   };

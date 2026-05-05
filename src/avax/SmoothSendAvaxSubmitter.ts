@@ -10,6 +10,7 @@
 
 import { HttpClient } from '../utils/http';
 import type {
+  AvaxFeePreview,
   AvaxSponsorshipMode,
   GasEstimateAvax,
   JsonRpcResponseAvax,
@@ -34,6 +35,15 @@ export interface SubmitSponsoredAvaxUserOpOptions {
   /** @default true */
   waitForReceipt?: boolean;
   receiptPoll?: { pollMs?: number; timeoutMs?: number };
+}
+
+export interface EstimateUserPaysFeeAvaxOptions {
+  /** Draft UserOperation (same shape as submit flow before signing) */
+  userOp: SponsoredUserOpDraftAvax;
+  /** Optional entrypoint, defaults to eth_supportedEntryPoints()[0] */
+  entryPoint?: string;
+  /** Optional paymaster params such as token/receiver overrides */
+  paymaster?: Omit<PaymasterSignRequestAvax, 'mode' | 'userOp'>;
 }
 
 export interface SmoothSendAvaxSubmitterConfig {
@@ -193,6 +203,52 @@ export class SmoothSendAvaxSubmitter {
       );
     }
     return data;
+  }
+
+  /**
+   * Preflight fee estimate for `user-pays-erc20` mode.
+   *
+   * This performs:
+   *  1) `eth_estimateUserOperationGas`
+   *  2) `paymaster/sign` in `user-pays-erc20` mode
+   * and returns `feePreview` when available.
+   */
+  async estimateUserPaysFee(
+    opts: EstimateUserPaysFeeAvaxOptions
+  ): Promise<{
+    entryPoint: string;
+    userOp: UserOperationAvax;
+    gas: GasEstimateAvax;
+    exchangeRate?: string;
+    feePreview?: AvaxFeePreview;
+  }> {
+    const entryPoint =
+      opts.entryPoint ?? (await this.getSupportedEntryPoints())[0];
+    if (!entryPoint) {
+      throw new Error('[SmoothSendAvaxSubmitter] no EntryPoint from bundler');
+    }
+
+    let userOp: UserOperationAvax = {
+      ...opts.userOp,
+      signature: opts.userOp.signature ?? '0x',
+    };
+
+    const gas = await this.estimateUserOperationGas(userOp, entryPoint);
+    userOp = SmoothSendAvaxSubmitter.applyGasEstimate(userOp, gas);
+
+    const signedPm = await this.paymasterSign({
+      mode: 'user-pays-erc20',
+      userOp,
+      ...opts.paymaster,
+    });
+
+    return {
+      entryPoint,
+      userOp,
+      gas,
+      exchangeRate: signedPm.exchangeRate,
+      feePreview: signedPm.feePreview,
+    };
   }
 
   async getBundlerHealth(): Promise<unknown> {

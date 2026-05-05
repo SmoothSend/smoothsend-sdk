@@ -1,4 +1,6 @@
 export type {
+  AvaxFeePreview,
+  AvaxHashTypes,
   AvaxSponsorshipMode,
   GasEstimateAvax,
   JsonRpcResponseAvax,
@@ -14,8 +16,16 @@ export {
   SmoothSendAvaxSubmitter,
   createSmoothSendAvaxSubmitter,
   type SmoothSendAvaxSubmitterConfig,
+  type EstimateUserPaysFeeAvaxOptions,
   type SubmitSponsoredAvaxUserOpOptions,
 } from './SmoothSendAvaxSubmitter';
+
+export {
+  SmoothSendAvaxClient,
+  createSmoothSendAvaxClient,
+  type SmoothSendAvaxClientConfig,
+  type SimpleCallInput
+} from './SmoothSendAvaxClient';
 
 export {
   avaxExecuteAbi,
