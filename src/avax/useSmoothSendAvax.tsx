@@ -27,7 +27,8 @@ import { SmoothSendAvaxSubmitter } from './SmoothSendAvaxSubmitter';
 import type {
   AvaxFeePreview,
   AvaxSponsorshipMode,
-  PaymasterSignRequestAvax
+  PaymasterSignRequestAvax,
+  UserOpSignerAvax,
 } from './types';
 import {
   encodeAvaxExecuteCalldata,
@@ -102,8 +103,12 @@ export type UseSmoothSendAvaxParams = {
   accountFactory?: Address;
   /** @default 0n */
   accountSalt?: bigint;
+  /** Optional explicit owner EOA address (useful with non-wagmi signers like Privy). */
+  ownerAddress?: Address;
   publicClient: PublicClient | null | undefined;
-  walletClient: WalletClient | null | undefined;
+  walletClient?: WalletClient | null | undefined;
+  /** Optional custom signer for userOpHash. When set, walletClient is not required for signing. */
+  signUserOpHash?: UserOpSignerAvax;
 };
 
 export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
@@ -181,6 +186,8 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
   ) as Address | null;
 
   const { publicClient, walletClient } = params;
+  const ownerAddressFromParams = params.ownerAddress;
+  const signUserOpHash = params.signUserOpHash;
 
   const submitCall = useCallback(
     async (params: {
@@ -198,7 +205,7 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
       if (!publicClient) {
         throw new Error('[SmoothSend AVAX] publicClient missing (wagmi usePublicClient)');
       }
-      if (!walletClient) {
+      if (!walletClient && !signUserOpHash) {
         throw new Error('[SmoothSend AVAX] walletClient missing (wagmi useWalletClient)');
       }
 
@@ -208,13 +215,13 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
         );
       }
 
-      const account = walletClient.account;
-      if (!account) {
+      const account = walletClient?.account;
+      const ownerAddress = (ownerAddressFromParams ?? account?.address) as Address | undefined;
+      if (!ownerAddress) {
         throw new Error(
-          '[SmoothSend AVAX] walletClient.account missing — connect wallet (wagmi useWalletClient)'
+          '[SmoothSend AVAX] ownerAddress missing — provide ownerAddress or walletClient.account'
         );
       }
-      const ownerAddress = account.address as Address;
 
       const chainId = Number(
         publicClient.chain?.id ?? (await publicClient.getChainId())
@@ -317,10 +324,15 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
               entryPointAddress: entryPoint,
               userOperation: op,
             });
-            return walletClient.signMessage({
-              account,
-              message: { raw: hash },
-            });
+            if (signUserOpHash) {
+              return signUserOpHash({ hash, chainId, entryPoint, sender });
+            }
+            if (!walletClient || !account) {
+              throw new Error(
+                '[SmoothSend AVAX] walletClient/account missing for signature'
+              );
+            }
+            return walletClient.signMessage({ account, message: { raw: hash } });
           },
         });
       } finally {
@@ -330,7 +342,9 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
     [
       accountFactory,
       accountSalt,
+      ownerAddressFromParams,
       publicClient,
+      signUserOpHash,
       smartAccountAddressProp,
       submitter,
       walletClient,
@@ -373,23 +387,19 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
       if (!publicClient) {
         throw new Error('[SmoothSend AVAX] publicClient missing (wagmi usePublicClient)');
       }
-      if (!walletClient) {
-        throw new Error('[SmoothSend AVAX] walletClient missing (wagmi useWalletClient)');
-      }
-
       if (!smartAccountAddressProp && !accountFactory) {
         throw new Error(
           '[SmoothSend AVAX] No smartAccountAddress or accountFactory provided. Pass them to SmoothSendAvaxProvider or useSmoothSendAvax hook.'
         );
       }
 
-      const account = walletClient.account;
-      if (!account) {
+      const account = walletClient?.account;
+      const ownerAddress = (ownerAddressFromParams ?? account?.address) as Address | undefined;
+      if (!ownerAddress) {
         throw new Error(
-          '[SmoothSend AVAX] walletClient.account missing — connect wallet (wagmi useWalletClient)'
+          '[SmoothSend AVAX] ownerAddress missing — provide ownerAddress or walletClient.account'
         );
       }
-      const ownerAddress = account.address as Address;
 
       let sender: Address;
       if (accountFactory) {
@@ -487,6 +497,7 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
     [
       accountFactory,
       accountSalt,
+      ownerAddressFromParams,
       publicClient,
       smartAccountAddressProp,
       submitter,

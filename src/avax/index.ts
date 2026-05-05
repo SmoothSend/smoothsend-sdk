@@ -7,6 +7,7 @@ export type {
   PaymasterSignRequestAvax,
   PaymasterSignResponseAvax,
   SponsoredUserOpDraftAvax,
+  UserOpSignerAvax,
   UserOperationAvax,
   UserOperationReceiptAvax,
 } from './types';
@@ -57,6 +58,16 @@ export {
 } from './useSmoothSendAvax';
 
 export {
+  createPrivyUserOpSigner,
+  type PrivyMessageSigner,
+} from './privySigner';
+
+export {
   useSmoothSendWrite,
   type UseSmoothSendWriteParams,
 } from './useSmoothSendWrite';
+
+export {
+  useSmoothSendPrivyWrite,
+  type UseSmoothSendPrivyWriteParams,
+} from './useSmoothSendPrivyWrite';

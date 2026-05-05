@@ -4,6 +4,13 @@
 
 export type AvaxSponsorshipMode = 'developer-sponsored' | 'user-pays-erc20';
 
+export type UserOpSignerAvax = (args: {
+  hash: `0x${string}`;
+  chainId: number;
+  entryPoint: `0x${string}`;
+  sender: `0x${string}`;
+}) => Promise<string>;
+
 /** Unpacked UserOperation as accepted by the bundler JSON-RPC + paymaster/sign */
 export interface UserOperationAvax {
   sender: string;

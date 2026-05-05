@@ -4,7 +4,8 @@ import { SmoothSendAvaxSubmitter, type SmoothSendAvaxSubmitterConfig } from './S
 import type {
   AvaxFeePreview,
   AvaxSponsorshipMode,
-  PaymasterSignRequestAvax
+  PaymasterSignRequestAvax,
+  UserOpSignerAvax,
 } from './types';
 import {
   encodeAvaxExecuteBatchCalldata,
@@ -25,7 +26,9 @@ export interface SmoothSendAvaxClientConfig {
   chain?: string;
   corsOrigin?: string;
   publicClient: PublicClient;
-  walletClient: WalletClient;
+  walletClient?: WalletClient;
+  ownerAddress?: Address;
+  signUserOpHash?: UserOpSignerAvax;
   smartAccountAddress?: Address;
   accountFactory?: Address;
   accountSalt?: bigint;
@@ -101,7 +104,11 @@ export class SmoothSendAvaxClient {
           entryPointAddress: built.entryPoint,
           userOperation: op
         });
-        return this.signUserOpHash(hash);
+        return this.signUserOpHash(hash, {
+          chainId: built.chainId,
+          entryPoint: built.entryPoint,
+          sender: built.userOp.sender as Address,
+        });
       }
     });
 
@@ -164,11 +171,10 @@ export class SmoothSendAvaxClient {
     entryPoint: Address;
   }> {
     const { publicClient, walletClient } = this.config;
-    const account = walletClient.account;
-    if (!account) {
-      throw new Error('[SmoothSend AVAX] walletClient.account missing');
+    const ownerAddress = (this.config.ownerAddress ?? walletClient?.account?.address) as Address | undefined;
+    if (!ownerAddress) {
+      throw new Error('[SmoothSend AVAX] ownerAddress missing — provide ownerAddress or walletClient.account');
     }
-    const ownerAddress = account.address as Address;
 
     const defaults = await this.submitter.getPublicAaDefaults().catch(() => null);
     const accountFactory =
@@ -269,13 +275,24 @@ export class SmoothSendAvaxClient {
     };
   }
 
-  private async signUserOpHash(hash: Hex): Promise<string> {
-    const account = this.config.walletClient.account;
-    if (!account) throw new Error('[SmoothSend AVAX] walletClient.account missing');
-    return this.config.walletClient.signMessage({
-      account,
-      message: { raw: hash }
-    });
+  private async signUserOpHash(
+    hash: Hex,
+    context: { chainId: number; entryPoint: Address; sender: Address }
+  ): Promise<string> {
+    if (this.config.signUserOpHash) {
+      return this.config.signUserOpHash({
+        hash,
+        chainId: context.chainId,
+        entryPoint: context.entryPoint,
+        sender: context.sender,
+      });
+    }
+    const walletClient = this.config.walletClient;
+    const account = walletClient?.account;
+    if (!walletClient || !account) {
+      throw new Error('[SmoothSend AVAX] walletClient.account missing');
+    }
+    return walletClient.signMessage({ account, message: { raw: hash } });
   }
 }
 

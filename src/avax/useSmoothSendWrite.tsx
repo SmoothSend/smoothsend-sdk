@@ -1,19 +1,33 @@
 import { useCallback, useState } from 'react';
-import { encodeFunctionData, type Address, type Hex } from 'viem';
+import { encodeFunctionData, type Address, type Hex, type PublicClient, type WalletClient } from 'viem';
 import { useSmoothSendAvax } from './useSmoothSendAvax';
-import type { AvaxSponsorshipMode, PaymasterSignRequestAvax } from './types';
+import type { AvaxSponsorshipMode, PaymasterSignRequestAvax, UserOpSignerAvax } from './types';
 
 export interface UseSmoothSendWriteParams {
-  publicClient?: any;
-  walletClient?: any;
+  apiKey?: string;
+  network?: 'testnet' | 'mainnet';
+  smartAccountAddress?: Address;
+  accountFactory?: Address;
+  accountSalt?: bigint;
+  ownerAddress?: Address;
+  publicClient?: PublicClient | null;
+  walletClient?: WalletClient | null;
+  signUserOpHash?: UserOpSignerAvax;
 }
 
 export function useSmoothSendWrite(params?: UseSmoothSendWriteParams) {
   const [hash, setHash] = useState<Hex | undefined>();
 
   const { submitCall, isPending } = useSmoothSendAvax({
+    apiKey: params?.apiKey,
+    network: params?.network,
+    smartAccountAddress: params?.smartAccountAddress,
+    accountFactory: params?.accountFactory,
+    accountSalt: params?.accountSalt,
+    ownerAddress: params?.ownerAddress,
     publicClient: params?.publicClient,
     walletClient: params?.walletClient,
+    signUserOpHash: params?.signUserOpHash,
   });
 
   const writeContract = useCallback(
