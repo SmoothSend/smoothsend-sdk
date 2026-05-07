@@ -82,5 +82,18 @@ export { HttpClient } from './utils/http';
 // Version
 export { VERSION } from './version';
 
+// Privy Integration — gasless Aptos for Privy embedded wallets
+export {
+  SmoothSendAptosProvider,
+  useSmoothSendAptosContext,
+  useSmoothSendPrivyWrite,
+  type PrivyAptosSignFn,
+  type SmoothSendAptosProviderConfig,
+  type UseSmoothSendAptosPrivyWriteParams,
+  type UseSmoothSendAptosPrivyWriteResult,
+  type AptosTransactionInput,
+  type AptosTransactionResult,
+} from './aptos-privy';
+
 // Default export
 export { SmoothSendSDK as default } from './core/SmoothSendSDK';
