@@ -13,6 +13,9 @@ __tests__/
 # Build artifacts
 *.tsbuildinfo
 
+#scripts
+scripts/
+
 # Documentation
 docs/
 examples/

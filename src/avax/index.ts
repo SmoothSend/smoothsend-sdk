@@ -46,6 +46,7 @@ export {
 export {
   ENTRY_POINT_V07_ADDRESS,
   fetchAvaxAaPublicDefaults,
+  getSmartAccountAddress,
   type AvaxAaPublicDefaults,
 } from './publicAaDefaults';
 

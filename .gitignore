@@ -30,6 +30,9 @@ Thumbs.db
 # Test coverage
 coverage/
 
+#scripts
+scripts/
+
 # Logs
 logs/
 *.log
@@ -48,4 +51,4 @@ RELAYER_INTEGRATION_FIXES.md
 temp/
 
 # tarball
-smoothsend-sdk-1.0.0.tgz
+smoothsend-sdk-*.tgz

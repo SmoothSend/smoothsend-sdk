@@ -146,19 +146,21 @@ export class SmoothSendAvaxSubmitter {
 
   async estimateUserOperationGas(
     userOp: UserOperationAvax,
-    entryPoint: string
+    entryPoint: string,
+    mode: 'developer-sponsored' | 'user-pays-erc20' = 'developer-sponsored'
   ): Promise<GasEstimateAvax> {
     return this.rpc<GasEstimateAvax>('eth_estimateUserOperationGas', [
       userOp,
       entryPoint,
-    ]);
+    ], mode);
   }
 
   async sendUserOperation(
     userOp: UserOperationAvax,
-    entryPoint: string
+    entryPoint: string,
+    mode: 'developer-sponsored' | 'user-pays-erc20' = 'developer-sponsored'
   ): Promise<string> {
-    return this.rpc<string>('eth_sendUserOperation', [userOp, entryPoint]);
+    return this.rpc<string>('eth_sendUserOperation', [userOp, entryPoint], mode);
   }
 
   async getUserOperationReceipt(
@@ -189,9 +191,11 @@ export class SmoothSendAvaxSubmitter {
   async paymasterSign(
     body: PaymasterSignRequestAvax
   ): Promise<PaymasterSignResponseAvax> {
+    const mode = body.mode ?? 'developer-sponsored';
     const res = await this.http.post<PaymasterSignResponseAvax>(
       '/api/v1/bundler/paymaster/sign',
-      body
+      body,
+      { headers: { 'X-Sponsorship-Mode': mode } }
     );
     if (!res.success || !res.data) {
       throw new Error('[SmoothSendAvaxSubmitter] paymasterSign failed');
@@ -233,7 +237,7 @@ export class SmoothSendAvaxSubmitter {
       signature: opts.userOp.signature ?? '0x',
     };
 
-    const gas = await this.estimateUserOperationGas(userOp, entryPoint);
+    const gas = await this.estimateUserOperationGas(userOp, entryPoint, 'user-pays-erc20');
     userOp = SmoothSendAvaxSubmitter.applyGasEstimate(userOp, gas);
 
     const signedPm = await this.paymasterSign({
@@ -283,7 +287,7 @@ export class SmoothSendAvaxSubmitter {
       signature: opts.userOp.signature ?? '0x',
     };
 
-    const gas = await this.estimateUserOperationGas(userOp, entryPoint);
+    const gas = await this.estimateUserOperationGas(userOp, entryPoint, opts.mode ?? 'developer-sponsored');
     userOp = SmoothSendAvaxSubmitter.applyGasEstimate(userOp, gas);
 
     const signedPm = await this.paymasterSign({
@@ -301,7 +305,7 @@ export class SmoothSendAvaxSubmitter {
       signature: await opts.signUserOp(userOp),
     };
 
-    const userOpHash = await this.sendUserOperation(userOp, entryPoint);
+    const userOpHash = await this.sendUserOperation(userOp, entryPoint, opts.mode ?? 'developer-sponsored');
 
     if (opts.waitForReceipt === false) {
       return { userOpHash, receipt: null };
@@ -314,14 +318,18 @@ export class SmoothSendAvaxSubmitter {
     return { userOpHash, receipt };
   }
 
-  private async rpc<T>(method: string, params: unknown[]): Promise<T> {
+  private async rpc<T>(method: string, params: unknown[], mode: 'developer-sponsored' | 'user-pays-erc20' = 'developer-sponsored'): Promise<T> {
     const id = this.rpcId++;
-    const envelope = await this.http.post<JsonRpcResponseAvax<T>>('/', {
-      jsonrpc: '2.0',
-      id,
-      method,
-      params,
-    });
+    const envelope = await this.http.post<JsonRpcResponseAvax<T>>(
+      '/',
+      {
+        jsonrpc: '2.0',
+        id,
+        method,
+        params,
+      },
+      { headers: { 'X-Sponsorship-Mode': mode } }
+    );
 
     if (!envelope.success || envelope.data == null) {
       throw new Error(`[SmoothSendAvaxSubmitter] ${method}: empty response`);

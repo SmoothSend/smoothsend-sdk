@@ -2,6 +2,9 @@
  * Public gateway defaults for Avalanche AA (no API key).
  */
 
+import type { Address, PublicClient } from 'viem';
+import { predictSimpleAccountAddress } from './simpleAccountFactory';
+
 /** Canonical ERC-4337 EntryPoint v0.7 on Fuji / Avalanche C-Chain */
 export const ENTRY_POINT_V07_ADDRESS =
   '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as const;
@@ -54,4 +57,57 @@ export async function fetchAvaxAaPublicDefaults(
     paymasterFuji: parseAddress(j.paymasterFuji),
     paymasterMainnet: parseAddress(j.paymasterMainnet),
   };
+}
+
+/**
+ * Recommended easy helper: get the user's Smart Contract Wallet (SCW) address.
+ *
+ * This is the simplest way for dApps to show the user their gasless address.
+ * It automatically fetches the correct factory from the gateway and predicts the address.
+ *
+ * @example
+ * const scw = await getSmartAccountAddress({
+ *   publicClient,
+ *   owner: eoaAddress,
+ *   network: 'mainnet'
+ * });
+ *
+ * // Show this to the user: "Send USDC here so you can do gasless transactions"
+ * console.log(scw);
+ */
+export async function getSmartAccountAddress(params: {
+  publicClient: PublicClient;
+  owner: Address;
+  network?: 'testnet' | 'mainnet';
+  gatewayUrl?: string;
+  salt?: bigint;
+  /** Pass your own factory if you're using a custom account implementation */
+  factory?: Address;
+}): Promise<Address> {
+  const network = params.network ?? 'testnet';
+  const salt = params.salt ?? 0n;
+
+  let factory: Address | undefined = params.factory;
+
+  if (!factory) {
+    const defaults = await fetchAvaxAaPublicDefaults(params.gatewayUrl);
+    factory =
+      (network === 'mainnet'
+        ? defaults.simpleAccountFactoryMainnet
+        : defaults.simpleAccountFactoryFuji) ?? undefined;
+  }
+
+  if (!factory) {
+    throw new Error(
+      `[SmoothSend AVAX] Could not determine SimpleAccountFactory for network ${network}. ` +
+      `Pass \`factory\` explicitly if you are using a custom account.`
+    );
+  }
+
+  return predictSimpleAccountAddress({
+    publicClient: params.publicClient,
+    factory,
+    owner: params.owner,
+    salt,
+  });
 }

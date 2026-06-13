@@ -115,6 +115,8 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
   submitter: SmoothSendAvaxSubmitter;
   paymasterAddress: Address | null;
   discoveredFactory: Address | null;
+  /** The user's gasless Smart Contract Wallet (SCW) address — show this to users so they know where to send tokens for gasless flows */
+  smartAccountAddress: Address | null;
   isPending: boolean;
   submitCall: (args: {
     to?: Address;
@@ -157,6 +159,10 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
   const accountFactoryProp = params.accountFactory ?? ctx?.accountFactory;
   const accountSalt = params.accountSalt ?? ctx?.accountSalt ?? 0n;
 
+  const { publicClient, walletClient } = params;
+  const ownerAddressFromParams = params.ownerAddress;
+  const signUserOpHash = params.signUserOpHash;
+
   if (!apiKey) {
     throw new Error(
       '[SmoothSend AVAX] apiKey required — pass useSmoothSendAvax({ apiKey }) or wrap SmoothSendAvaxProvider'
@@ -170,6 +176,7 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
 
   const [discovered, setDiscovered] = useState<AvaxAaPublicDefaults | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [computedScwAddress, setComputedScwAddress] = useState<Address | null>(null);
 
   useEffect(() => {
     submitter.getPublicAaDefaults().then(setDiscovered).catch(err => {
@@ -185,9 +192,34 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
     network === 'mainnet' ? discovered?.paymasterMainnet : discovered?.paymasterFuji
   ) as Address | null;
 
-  const { publicClient, walletClient } = params;
-  const ownerAddressFromParams = params.ownerAddress;
-  const signUserOpHash = params.signUserOpHash;
+  // Compute the SCW address for easy display in the UI (funding UX, balance checks, etc.)
+  useEffect(() => {
+    const owner = ownerAddressFromParams ?? (walletClient?.account as any)?.address;
+    if (!publicClient || !owner || (!smartAccountAddressProp && !accountFactory)) {
+      setComputedScwAddress(null);
+      return;
+    }
+
+    const targetFactory = accountFactory;
+    if (!targetFactory) {
+      setComputedScwAddress(smartAccountAddressProp ?? null);
+      return;
+    }
+
+    (async () => {
+      try {
+        const predicted = await predictSimpleAccountAddress({
+          publicClient,
+          factory: targetFactory,
+          owner,
+          salt: accountSalt,
+        });
+        setComputedScwAddress(predicted);
+      } catch {
+        setComputedScwAddress(smartAccountAddressProp ?? null);
+      }
+    })();
+  }, [publicClient, ownerAddressFromParams, walletClient, smartAccountAddressProp, accountFactory, accountSalt]);
 
   const submitCall = useCallback(
     async (params: {
@@ -505,6 +537,10 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
     ]
   );
 
+  // Compute the effective SCW address for easy display in UIs
+  // (this is the address users should send assets to for gasless flows)
+  const effectiveSmartAccountAddress = smartAccountAddressProp ?? null;
+
   return {
     submitter,
     submitCall,
@@ -512,6 +548,12 @@ export function useSmoothSendAvax(params: UseSmoothSendAvaxParams): {
     estimateUserPaysFee,
     paymasterAddress,
     discoveredFactory: accountFactory ?? null,
+    /** 
+     * The user's Smart Contract Wallet (SCW) address.
+     * This is what you should show to users for funding ("send USDC here for gasless transactions").
+     * Computed automatically when possible.
+     */
+    smartAccountAddress: computedScwAddress ?? effectiveSmartAccountAddress,
     isPending,
   };
 }
